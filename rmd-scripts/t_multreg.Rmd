@@ -1,0 +1,278 @@
+---
+title: ''
+output:
+  html_document:
+    highlight: textmate
+    theme: readable
+---
+  
+```{r setup, echo=FALSE, message=F, warning=F  }
+
+### This chunk is used for every tutorial
+library(knitr)
+
+# Identify machine and set directory
+rootDir1 <- "/Users/wsundstrom"
+rootDir2 <- "/Users/Derran"
+subDir <- "/Google Drive/R_SCU_resources/files42/data"
+
+if (file.exists(rootDir1)){
+    rootDir = rootDir1
+} else {
+  if (file.exists(rootDir2)){
+    rootDir = rootDir2
+  }
+}
+
+mainDir = file.path(rootDir, subDir)
+
+# Root drectory for knitr
+opts_knit$set(root.dir = mainDir)
+
+# The following allows markdown to find LaTex
+Sys.setenv(PATH=paste(Sys.getenv("PATH"),"/usr/texbin",sep=":"))
+
+# Set working directory 
+setwd(mainDir)
+
+# Load the packages (must have been installed)
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(WDI)
+library(gdata)
+library(doBy)
+library(XML)
+library(countrycode)
+library(erer)
+library(plyr)
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# set larger font size for qplot (default is 12)
+theme_set(theme_gray(base_size = 18))
+# function to calculate corrected SEs for regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+
+```
+
+```{r prelim, echo=FALSE, message=F, warning=F  }
+
+### This chunk is for any data and regression steps used throughout the tutorial
+
+### Read the CA school district data 
+
+# read the data from csv file
+caschool = read.csv("caschool.csv", header=TRUE, sep=",")
+reg1 = lm(testscr ~ str, data=caschool)
+reg2 = lm(testscr ~ str + el_pct, data=caschool)
+reg3 = lm(testscr ~ str + el_pct + meal_pct, data=caschool)
+reg4 = lm(testscr ~ str + el_pct + calw_pct, data=caschool)
+reg5 = lm(testscr ~ str + el_pct + meal_pct + calw_pct, data=caschool)
+
+
+```
+
+<base target="_top"/>
+
+_Guide to R for SCU Economics Students, v. 3.0_
+
+*** 
+
+## Multiple regression
+
+***
+
+#### In this tutorial you will learn how to:
+
+* Run multiple regressions in R
+* Assemble the estimates into a nice table of results
+* Use regression results to predict Y for hypothetical values of X
+* Calculate standardized regression coefficients to judge size of effect
+* Conduct a variety of hypothesis tests for joint and other hypotheses about the regression coefficients, including F tests
+
+***
+
+#### Where to find what you need:
+
+* [Guide to R: Home](http://rpubs.com/wsundstrom/home)
+* [Downloads: R tutorial scripts and data files](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0)
+
+***
+
+### Introduction 
+
+Multiple regression is regression with more than one regressor (X variable). In R, multiple regression is straightforward. In this tutorial you will run all the regressions for Table 7.1 of Stock and Watson (p. 238 of original 3rd edition) and put them into a single stargazer table, which will look a lot like Table 7.1.  Running and presenting the regressions is the easy part: you will need to make sure you are able to interpret the regression coefficients and understand why the estimated coefficients might be biased.
+
+*** 
+
+### Run some regressions
+
+Start RStudio and open the script *t_multreg.R* in your script editor. Make sure to change the `setwd(…) command`, as usual.
+
+This script loads the now-familiar CA school district data set, and runs several regressions with the district test score (testscr) as the dependent (Y) variable, and various regressors (X variables).  
+
+Scroll down to the regression commands. Note that the regressions (2)-(5) are multiple regressions, which have more than one regressor (X variable). In R we can add regressors simply by including them with a “+” sign, as in `testscr ~ str + el_pct.`
+
+Examine the stargazer command, which creates the table. Note that we include the names of all the regressions (reg1, reg2, …), followed by the SE correction for all of the regressions, in the same order:  `se=list(cse(reg1), cse(reg2), …)`.
+
+_It is very important that you pay attention to the parentheses._ The parentheses in every R command must balance, in the sense that for every open paren “(“ there is a later close paren “)”. 
+
+Highlight and run all the lines from the beginning of the script through the entire stargazer command. Look at the resulting table in your console. 
+
+```{r, message=F, warning=F, comment=NA }
+
+stargazer(reg1, reg2, reg3, reg4, reg5, 
+          se=list(cse(reg1),cse(reg2),cse(reg3),cse(reg4),cse(reg5)), 
+          title="Regression Results", type="text",
+          df=FALSE, digits=3)
+
+```
+
+Compare the results for each column with what is in Table 7.1 of your textbook (p. 238). The two tables should contain identical numbers, at least within rounding error.
+
+Make sure you understand how to interpret each coefficient in the table (the above table only reproduces the first four regression results), and how to do a hypothesis test or confidence interval for each variable.
+
+You can write the table to a text file if you want to save it, rather than cut and paste from the console. In the stargazer command, you would add another option, saving to a file named filename.txt: ```out=”filename.txt”```
+
+You can put column labels in stargazer, which helps the reader. The code is included in the next command. Be careful about commas and apostrophes. Make sure your labels are in the same order as the corresponding regressions! Ruy it and look at the table.
+
+*** 
+
+### Prediction using regression results
+
+We can use a regression to predict the Y value for specific hypothetical or actual values of the regressors using the predict function. Let’s do this using the results of regression reg3 and predict the average test score for a district with str = 20, el_pct = 20, and meal_pct = 50.
+
+To do this, we first create a new data frame with these values of the X variables:  
+```newdata = data.frame(str = 20, el_pct = 20, meal_pct = 50)``` 
+
+Next, we use the `predict` command, telling R which regression coefficients to use (reg3) and which data frame (newdata):  ```predict(reg3, newdata)```
+
+Run these commands and see what the result is.
+
+The `predict` command will also calculate the upper and lower limits of a 95% confidence interval around the prediction. There are two kinds of confidence intervals for predictions. 
+
+* The first is obtained with the option `interval="confidence"` in the `predict` command. This gives us the 95% _confidence interval_ for E(Y | X): that is, what is the expected test score over a large number of districts with this set of characteristics X? Because our coefficient estimates are uncertain, there is some uncertainty about this expected test score, and the CI gives us a plausible range of values.
+
+* The second kind of interval is often called a 95% _prediction interval_, and it is obtained with the option `interval="prediction"`. The prediction interval can be interpreted as a range of values for predicting the test score in a _single school district_ with these characteristics. Because of the residual variation around predicted values, the 95% prediction interval is always wider than the confidence interval of the prediction.
+
+* Run these two intervals and see what you get. Is the prediction interval in fact wider?
+
+***
+
+### Obtaining standardized coefficients to assess effect size
+
+How important is the effect of a regressor (X) on Y? Note that this is not the same as asking whether the coefficient is statistically significant. We want to know how big the point estimate is, not just whether it is different from zero. We will discuss various ways of judging effect size in class, but one common approach is to “standardize” the regression coefficient. Confusingly, standardized coefficients are sometimes called “beta coefficients”—not to be confused with the coefficient itself, which we call beta.
+
+* The standardized slope coefficient tells us the expected marginal effect of a one-standard-deviation change in X on Y, measured in standard deviations of Y. We rescale the coefficient by measuring both variables in their sample standard deviations rather than their units. In more everyday langauge, this tells us how much a “typical” change in the X variable will move Y, other things equal. We allow the data to tell us what is a “typical” amount of variation.
+
+*	The standardized coefficient is just one way of judging magnitude of effect, and is more appropriate for continuous variables than for binary variables.
+
+*	There are packages that calculate standardized coefficients, but here we will just do it in the script by obtaining the coefficient estimate and multiplying it by sd(X)/sd(Y). Run these lines and see what happens:
+
+```{r, eval=F, message=F, warning=F}
+
+coef(summary(reg5))["str","Estimate"]*sd(caschool$str)/sd(caschool$testscr)
+coef(summary(reg5))["el_pct","Estimate"]*sd(caschool$el_pct)/sd(caschool$testscr)
+
+```
+
+***
+
+### F-tests 
+
+Joint hypotheses are hypotheses about more than one “restriction” on the coefficients. For example, we might want to test the null hypothesis that in regression (5), the coefficients on ```meal_pct``` and ```calw_pct``` are both equal to zero. These variables are intended to control for low-income school districts; if both coefficients were zero, it would suggest that the relative poverty of a district does not have a significant impact on average test score, controlling for the other factors in the regression.
+
+*	Note: It is incorrect to test this joint hypothesis with two separate t-tests.
+
+To implement a joint hypothesis test, we can use the function `lht( )` which is part of the car package.
+To see how it works, run the next command:
+
+`lht(reg5, c("meal_pct = 0", "calw_pct = 0"), white.adjust = "hc1")`
+
+Examining this command,
+
+*	`reg5` tells lht which regression results to use.
+*	`c("meal_pct = 0", "calw_pct = 0")` expresses the null hypothesis, with each restriction in quotation marks.
+*	`white.adjust = “hc1”` assures that the heteroskedasticity-corrected standard errors are used for the test. Always include this.
+
+Here are the results: 
+
+```{r, echo=F, message=F, warning=F, comment=NA }
+
+lht(reg5, c("meal_pct = 0", "calw_pct = 0"), white.adjust = "hc1")
+
+```
+
+Interpreting the results requires careful understanding of the nature of the hypothesis tests. For now, note that the null hypothesis is stated for us, and that the F-stat for the test is 280.66, with the p-value next to it (<2.2e-16). Df = 2 tells you the number of restrictions being tested. 
+
+Obviously with such a low p-value we can reject the null hypothesis. We can test a wide variety of hypotheses using lht. Run the remaining lht lines in the script and see if you can understand what each test is doing.
+
+*** 
+
+### Multiple regression with WDI data
+
+In the previous chapter we ran a regression of income (measured as per capita real GDP) on the percent of females in the country. The script contains the commands to estimate a multiple regression version of that equation, where we include population, latitude, infant mortality and fertility.
+
+You have already run the commands to import the WDI dataset into R. The script includes the usual commands to clean up the dataset, renaming the variables, etc. Also in the Data section are some commands to rescale two of the variables. The third command transforms the variable latitude from a factor variable to a numeric variable.
+
+```{r, eval=F, message=F, warning=F}
+
+wdim$GDPpcUSDreal = wdim$GDPpcUSDreal/1000
+wdim$population = wdim$population/1000000
+wdim$latitude=as.numeric(wdim$latitude)
+
+```
+
+In the Analysis section, run two regressions and display the results using stargazer.
+
+```{r, eval=F, message=F, warning=F}
+
+regwdi1 = lm(femaleperc ~ 
+          GDPpcUSDreal+population+
+          latitude, data= wdim)
+regwdi2 = lm(femaleperc ~ GDPpcUSDreal + 
+	        population+ infmort+ fertility+latitude, 
+	        data= wdim)
+
+stargazer(regwdi1,regwdi2, 
+          se=list(cse(regwdi1),cse(regwdi2)), 
+          title="Regression of percent female 
+          on various correlates", type="text",
+          df=FALSE, digits=3)
+
+```
+
+Take some time to examine the output of the regression. The variable measuring GDP per capita is roughly the same magnitude as before (an increase in GDP per capita of $1000 is associated with a decrease in the percentage female of .1). But now it is more statistically significant (there are two and three asterisks). The variable latitude is also statistically significant. Can you interpret the meaning?
+
+Once again, we repeat the admonishment: R has no trouble calculating regression coefficients, but we need to use judgment and common sense to determine whether the coefficients are likely to be unbiased.
+
+***
+
+### Summary
+
+___Key R commands (functions):___
+
+* ```lm```:  can be used for multiple regression too
+*	```stargazer```:  can combine results from several regressions
+*	```predict```:  use regression results to predict Y for different data
+*	```lht```:  flexible function for linear hypothesis tests (requires package car)
+
+___Key points/ concepts:___
+
+*	The format for running a multiple regression is lm(Y ~ X1 + X2 + …)
+*	ALWAYS use the heteroskedasticity-corrected standard errors.
+*	We can obtain standardized coefficients to judge effect size.
+*	For lht, make sure to include the option white.adjust.
+* While R can calculate regression coefficients, only you can interpret the regression to determine if there is bias.
+
+*** 
+

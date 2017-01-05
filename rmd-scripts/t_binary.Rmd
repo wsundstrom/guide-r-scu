@@ -1,0 +1,243 @@
+---
+title: ''
+output:
+  html_document:
+    highlight: textmate
+    theme: readable
+---
+  
+```{r setup, echo=FALSE, message=F, warning=F  }
+
+### This chunk is used for every tutorial
+
+library(knitr)
+
+# Identify machine and set directory
+rootDir1 <- "/Users/wsundstrom"
+rootDir2 <- "/Users/Derran"
+subDir <- "/Google Drive/R_SCU_resources/files42/data"
+
+if (file.exists(rootDir1)){
+    rootDir = rootDir1
+} else {
+  if (file.exists(rootDir2)){
+    rootDir = rootDir2
+  }
+}
+
+mainDir = file.path(rootDir, subDir)
+
+# Root drectory for knitr
+opts_knit$set(root.dir = mainDir)
+
+# The following allows markdown to find LaTex
+Sys.setenv(PATH=paste(Sys.getenv("PATH"),"/usr/texbin",sep=":"))
+
+# Set working directory 
+setwd(mainDir)
+
+# Load the packages (must have been installed)
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(WDI)
+library(gdata)
+library(doBy)
+library(XML)
+library(countrycode)
+library(erer)
+library(plyr)
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# set larger font size for qplot (default is 12)
+theme_set(theme_gray(base_size = 18))
+# function to calculate corrected SEs for regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+
+```
+
+```{r prelim, echo=FALSE, message=F, warning=F  }
+
+### This chunk is for any data and regression steps used throughout the tutorial
+
+### Read the data sets
+
+data("HMDA")
+
+# Create a factor variable of levels
+HMDA$lvratcat = factor(ifelse(HMDA$lvrat < 0.8, "low",
+                  ifelse(HMDA$lvrat >= 0.8 & HMDA$lvrat <= 0.95, "medium", "high")),
+                  levels = c("low", "medium", "high"))
+
+# Turn two factor variables into numeric variables
+HMDA$mhist = as.numeric(HMDA$mhist)
+HMDA$chist = as.numeric(HMDA$chist)
+
+# Truncate the two ratios for better boxplot
+HMDA$pirat2 = ifelse(HMDA$pirat >1, 1, HMDA$pirat) 
+HMDA$hirat2 = ifelse(HMDA$hirat >1, 1, HMDA$hirat) 
+
+```
+
+<base target="_top"/>
+
+_Guide to R for SCU Economics Students, v. 3.0_
+
+*** 
+
+## Binary dependent variables
+
+***
+
+#### In this tutorial you will learn how to:
+
+* Run regression models with a binary (dummy) dependent variable, including the linear probability model, logit, and probit
+* Replicate Table 11.2 of Stock and Watson (p. 401)
+* Plot predicted probabilities implied by the probit estimates
+
+***
+
+#### Where to find what you need:
+
+* [Guide to R: Home](http://rpubs.com/wsundstrom/home)
+* [Downloads: R tutorial scripts and data files](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0)
+
+***
+
+### Introduction 
+
+In many real-world applications, we are interested in explaining or predicting dependent variables that are binary (0-1). Examples could include such decisions as whether or not to get married, or to attend college, or to buy a car; your textbook focuses on a lender’s decision whether or not to approve a mortgage loan.
+
+Models with a binary dependent variable can in fact be estimated using ordinary least squares regression, treating the dependent (0-1) variable like any other: this is the linear probability model (LPM). For reasons discussed in class, the LPM is not the best way to do this. Instead, economists usually use a nonlinear model such as the logit or probit. These are easy to estimate in R, although the interpretation of the coefficients can be tricky.
+
+
+Start RStudio and open the script *t_binary.R* in your script editor. Edit the ```setwd(…)``` command as usual.
+
+***
+
+### Run the LPM, logit, and probit regressions
+
+Examine the data section of the script. Following the presentation in Stock and Watson, we are using data on mortgage applications from the Home Mortgage Disclosure Act (HMDA), which is available in the AER package in R. It is already a data frame in R, so we read it directly into R using the data command.
+
+Run the entire data section, and note the new variables being created here.
+
+Let’s start by examining the relationship between an applicant’s payment-income (P/I) ratio and a binary variable equal to 1 if their mortgage application was denied, 0 if it was accepted. This should be a positive relationship, because someone with a higher P/I will have a harder time affording their mortgage payments, leading the bank to be more reluctant to make the loan. The boxplot (first `qplot`) shows us that indeed the median P/I ratio is higher for those denied, and the distribution is shifted higher compared with those who were accepted for loans.
+
+The scatter plots (qplot) also examine this relationship. If you run the first qplot command, you will see that it is pretty hard to tell what the relationship is, because of the binary dependent variable. The second qplot puts a linear regression line through the scatter, and here the positive relationship does show up quite clearly. This line represents the linear probability model’s prediction of the probability of denial. What are some obvious problems with this probability prediction?
+
+We now turn to the regression models in Stock and Watson Table 11.2. The first is the linear probability model, which is just a standard OLS regression. But note that the dependent variable here is defined as a factor variable, and to get the regression to work we need to convert it to a 0-1 number using ```I(as.numeric(deny) - 1)```.
+
+Next we run the equivalent logit and probit models using the command ```glm(…)```. Note that we write the regression formula in exactly the same way we do for the ```lm(…)``` regression, with the dependent variable followed by ~. To estimate the logit (fm2), we add the ```family = binomial``` option, and for the probit we add the ```family=binomial(link="probit")``` option. The `x=TRUE` option is added to allow us to predict the estimated probabilities (see below):
+
+```{r, eval=F, message=F, warning=F}
+
+# Run logit regression
+fm2 = glm(deny ~ afam + pirat + hirat + lvratcat + chist + mhist + 
+          phist + insurance + selfemp, 
+          family = binomial, x=TRUE, data = HMDA)
+
+# Run probit regressions
+fm3 = glm(deny ~ afam + pirat + hirat + lvratcat + chist + mhist + 
+          phist + insurance + selfemp, 
+          family = binomial(link = "probit"), x=TRUE, data = HMDA)
+
+```
+
+Once we have run all the regressions, we can put them into a stargazer table, as usual. In the stargazer command, notice that we use the standard error correction for the LPM to correct for heteroskedasticity, but leave the logit and probit standard errors at their default (NULL) values: 
+
+```se=list(cse(fm1),NULL,NULL,NULL,NULL,NULL)```.
+
+Run the `stargazer` table and compare the results with S&W Table 11.2. In the book's Table 11.2, note that the bottom panel runs some joint hypothesis tests. We can do that as well, using the `lht` command. For example, suppose we want to test the joint null that the coefficients on both _hirat_ and _pirat_ are zero. The script shows you how. Run the following line. Can you reject this hypothesis?
+
+```{r, eval=F, message=F, warning=F}
+
+# F tests of joint hypotheses can be conducted using lht. For example:
+lht(fm4, c("pirat = 0", "hirat = 0")) 
+
+```
+
+***
+
+### Obtaining predicted probabilities and marginal effects 
+
+One problem with the probit and logit models is that the coefficients are not easily intepreted in any "natural" terms. For the LP model of column (1), you can read the coefficient of 0.0837 on _afamyes_ (binary variable for black) pretty directly as meaning that the probability of being denied a mortgage is 8.37 percentage points greater for a black person, other variables held constant. But what does the coefficient of 0.389 mean in the probit column (3)? 
+
+To aid in interpreting the results, let's look at a couple of ways of "translating" the probit results from column (3).
+
+*** 
+
+#### Marginal effects of X's on predicted probability
+
+First, let's rescale the probit coefficients so that they represent the marginal effect of a change in the regressor on the _predicted probability_ of mortgage denial. If you understand the probit model, this will immediately raise a flag. The fact is, the relationship between any X and the probability is nonlinear, so there is no single number representing the marginal effect. To deal with this we typically calculate some kind of _average_ marginal effect. There are two ways to do this:
+
+1. Calculate the marginal effect at the means of all the X variables. In effect, we create a fictitious person who has the sample mean characteristics, and ask how their predicted probability of denial would change with a one-unit change in one of the variables, holding all the rest constant.
+
+2. Calculate the marginal effect of a variable separately for each individual in the sample, and then average it over all the individuals. 
+
+The command `maBina` from the package `erer` allows us to do it either way. In the following commands, the first (`fm3a`) uses the first method, evaluating the marginal effect at the mean X values (hence `x.mean = TRUE`). The second (`fm3b`) uses the second method, calculating the marginal effect for each observation and averaging. The option `rev.dum = TRUE` does the calculations treating dummy variables as 0-1, rather than pretending that they are continuous. Note that using `maBina` requires that we specified the option `x=TRUE` in the `glm` estimation of the probit.
+
+```{r, eval=F, message=F, warning=F}
+
+fm3a = maBina(fm3, x.mean = TRUE, rev.dum = TRUE, digits = 3)
+fm3b = maBina(fm3, x.mean = FALSE, rev.dum = TRUE, digits = 3)
+
+```
+
+The results can be displayed using the `stargazer` command that folows. Note that the results are almost identical in this case.
+
+*** 
+
+#### Plot the predicted probability of denial by P/I ratio by race
+
+The last little bit of code shows how to plot the predicted probability as a function of one of the X variables, once you have run the `maBina` command. It uses the `maTrend` command:
+
+```{r, eval=F, message=F, warning=F}
+
+preplot = maTrend(fm3b, n = 300, nam.c = "pirat", nam.d="afamyes", simu.c = TRUE)
+print(preplot)
+
+```
+
+Note the following: 
+
+* The first argument `fm3b` is the name of the stored results from `maBina`.
+
+* `n = 300` gives the number of points to plot (more means smoother curve).
+
+* `nam.c = "pirat"` is the continuous X variable over which to plot the predictions (P/I ratio in this case).
+
+* `nam.d = "afamyes"` is the binary variable over which to plot separate curves (race in this case).
+
+* `simu.c = TRUE` means we use simulated values of the X variable, which makes for a smoother curve.
+
+Run it and see what happens.
+
+The script also includes code that generates the same plot but where you calculate the probabilities “manually” using the coefficients from the regressions. This is a good example of how the regression output, which is stored in R, can be retrieved and used in displays.
+
+***
+
+### Summary
+
+___Key R commands (functions):___
+
+* `glm`: runs generalized linear models, which include logit and probit
+* `maBina`: predicts marginal effects of X on predicted probability in a probit or logit model
+* `maTrend`: predicts probability as a function of X
+
+___Key points/ concepts:___
+
+* A regression with a binary dependent variable can be run as an OLS regression, but make sure the Y variable is numeric (0-1).
+* A better way to estimate such a model is the logit or probit, using R’s ```glm``` command.
+* The predicted probabilities can be obtained and plotted to see the impact of a regressor at different values. 
+
+*** 
+

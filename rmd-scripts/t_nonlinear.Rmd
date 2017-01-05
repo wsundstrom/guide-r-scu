@@ -1,0 +1,201 @@
+---
+title: ''
+output:
+  html_document:
+    highlight: textmate
+    theme: readable
+---
+  
+```{r setup, echo=FALSE, message=F, warning=F  }
+
+### This chunk is used for every tutorial
+
+library(knitr)
+
+# Identify machine and set directory
+rootDir1 <- "/Users/wsundstrom"
+rootDir2 <- "/Users/Derran"
+subDir <- "/Google Drive/R_SCU_resources/files42/data"
+
+if (file.exists(rootDir1)){
+    rootDir = rootDir1
+} else {
+  if (file.exists(rootDir2)){
+    rootDir = rootDir2
+  }
+}
+
+mainDir = file.path(rootDir, subDir)
+
+# Root drectory for knitr
+opts_knit$set(root.dir = mainDir)
+
+# The following allows markdown to find LaTex
+Sys.setenv(PATH=paste(Sys.getenv("PATH"),"/usr/texbin",sep=":"))
+
+# Set working directory 
+setwd(mainDir)
+
+# Load the packages (must have been installed)
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(WDI)
+library(gdata)
+library(doBy)
+library(XML)
+library(countrycode)
+library(erer)
+library(plyr)
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# set larger font size for qplot (default is 12)
+theme_set(theme_gray(base_size = 18))
+# function to calculate corrected SEs for regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+
+```
+
+```{r prelim, echo=FALSE, message=F, warning=F  }
+
+### This chunk is for any data and regression steps used throughout the tutorial
+
+### Read the data 
+
+caschool = read.csv("caschool.csv", header=TRUE, sep=",")
+
+data8.1 = read.csv("ch8_cps.csv", header=TRUE, sep=",")
+
+# table 8.1 in book restricts the sample to people 
+# aged at least 30 (and everyone is under 65)
+t8.1 = subset(data8.1, age>=30)
+
+```
+
+<base target="_top"/>
+
+_Guide to R for SCU Economics Students, v. 3.0_
+
+*** 
+
+## Nonlinear regression 
+
+***
+
+#### In this tutorial you will learn how to:
+
+* Run nonlinear specifications of regressions, including polynomials and natural logs
+* Run regressions with interaction terms
+* Replicate Table 8.1 of Stock and Watson (p. 284)
+* Examine what happens with perfect multicollinearity
+
+
+***
+
+#### Where to find what you need:
+
+* [Guide to R: Home](http://rpubs.com/wsundstrom/home)
+* [Downloads: R tutorial scripts and data files](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0)
+
+***
+
+### Introduction
+
+In this tutorial we explore ways in which regression can be used to capture nonlinear and other complex relationships between variables. Multiple regression can be a particularly powerful tool when we examine the effects of binary variables and interactions, which permit effects of some variables to depend on other variables. 
+
+* Start RStudio and open the script *t_nonlinear.R* in your script editor. Scroll through the script and note that the first part of this case uses the CA school district data set, while the second part uses CPS earnings data.
+
+* Edit the ```setwd(…)``` command and then run the script from the top through the CA school data section. 
+
+***
+
+### Run nonlinear regressions using CA school data
+
+In the analysis section for the CA school data we examine the relationship between the district average income (avginc) and the average test score (testscr). 
+
+First run the scatter plot: It suggests that the relationship is not a straight line!
+
+It’s easy to run quadratic or higher polynomials of this relationship by adding the square, cube, etc. of the income variable to our regression. One way to do this would be to create new variables for avginc squared, etc. For example, we could include the following line:  
+```caschool$avginc2 = caschool$avginc^2```
+
+Instead of creating new variables, we will use a nifty feature of R, which is that we can generate new variables within the regression command itself, “on the fly” so to speak. For example, examine the command for reg2:  
+
+```reg2 = lm(testscr ~ avginc + I(avginc^2), data=caschool)```
+
+```I(avginc^2)``` represents a new variable equal to avginc^2, which is avginc to the 2 power (squared). R will make a new variable by performing whatever calculation is inside the `I(…)`. Note that the rules for math expressions in R are basically the same as Excel.
+
+Now run the regressions `reg1` – `reg3` and the `stargazer` command that follows them. The option `digits=4` is included in the stargazer command. You may sometimes need more digits if the coefficients are very small, or else they round to zero. Please note that just because the coefficient is a small number this does not mean the size of the effect is small, because that also depends on the scale of the X variable.
+
+_Which specification do you prefer, and why?_
+
+Now let’s try some log specifications: Run the regressions `reg4` – `reg6` and the `stargazer` command that follows them.
+
+* Note that log(X) = the natural logarithm of X.
+
+* Bear in mind that the dependent variable (Y) is not the same for all three regressions. For `reg4` (lin-log), it is the average income in dollars. For `reg5` and `reg6`, it is the natural log of average income. Therefore, the coefficients are not in the same units for all the regressions, and it is not straightforward to compare them. In particular, the R-squared can only be compared for two regressions with the same dependent variable. 
+
+* Stargazer tells us what the dependent (Y) variable is for each column. Also, in the stargazer command, the option ```column.labels=``` has been added to allow us to add more informative labels to the column heads. 
+
+* Make sure you can interpret what each slope coefficient is telling you in words (remember that changes in logs are proportional changes).
+
+***
+
+### Regressions with dummies and interactions 
+
+Now let’s see how to run regressions with dummy variables and interaction terms by replicating Table 8.1 from Stock and Watson (3rd ed., p. 284). This table examines gender differences in earnings and the return to education based on individual-level data from the March 2009 Current Population Survey (a brief description is in the Appendix).
+
+In the analysis, the dependent variable will be the natural log of average hourly earnings. The log-linear specification is often used in studies of earnings. The key X variables are years of education, a binary (dummy) variable for female, and years of work experience, which is estimated as the number of years since the individual completed their schooling.
+
+We will also include a regressor that is the interaction of education and female. An interaction variable is an additional regressor that is the product of two other regressors. The coefficient on this variable estimates the difference between the slope on education for women vs. men.
+
+Run the data section, where we create a couple of new variables. Although we could use ```I(log(ahe))``` as the dependent variable in the regressions, we have created a separate variable `logahe = log(ahe)` for convenience here.
+
+Now run the regressions for `col1` – `col3m` and create the first stargazer table showing the alternative approaches to estimating regression (3). Note the following:
+
+* When including an interaction term, you should always include the individual variables as regressors too: yrseduc, female, and yrseduc x female.
+    
+* `col3alt` and `col3` are two different ways to run the same regression. In `col3alt` we add the interaction variable by adding ```I(yrseduc*female)```, whereas in `col3` we use another shortcut built into R, where the interaction term is ```yrseduc:female```. The colon (:) does the trick. This way of doing it is more flexible and we will generally use it for interactions.
+    
+* The use of the female dummy variable and the interaction allows the intercept and the slope to be different for females and males. Yet another way to accomplish the same thing here would be to run separate regressions for the female and male samples, which we do in `col3f` and `col3m`. Note how we create the female subset of the data. 
+    
+* Look at the coefficients in the table, and make sure you understand why together they tell you the same thing as the coefficients for `col3alt` and `col3`.
+    
+Now let’s finish up Table 8.1 by running the specification in column (4), which adds experience, experience squared, and dummies for region. Make sure you understand why we did NOT include a fourth dummy variable for the Northeast region.
+
+Run the regression and generate the table. Compare the results with the textbook’s Table 8.1. Aside from rounding, the results should be identical.
+
+***
+
+### Perfect multicollinearity
+
+Recall that perfect multicollinearity occurs when one of the regressors is a perfect linear function of one or more of the other regressors. A common mistake that can cause perfect multicollinearity is the so-called dummy variable trap.
+Different statistical packages and procedures deal with perfect multicollinearity in different ways. In the case of R, the ```lm(…)``` command will run, but will typically drop one or more of the offending regressors. Let’s take a look.
+
+Find the section of script with the heading “Perfect multicollinearity: diagnosis,” and run the commands. 
+
+* Why is there perfect multicollinearity in this regression? How did R deal with the problem?
+
+* For some statistical procedures, perfect multicollinearity may cause R to fail and create an error message.
+
+* Treatment of the problem in this case is straightforward: drop one of the region dummies. In other cases, the problem may not be so obvious!
+
+***
+
+### Summary
+
+___Key points/ concepts:___
+
+*	```I(...)```can be used within a regression to create new variables “on the fly.”
+* A colon (such as X1:X2) can be used within a regression to create an interaction term between X1 and X2 “on the fly.”
+* A regression suffering perfect multicollinearity will result in R dropping one or more perfectly collinear regressors. 
+
+*** 

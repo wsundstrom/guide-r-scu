@@ -1,0 +1,129 @@
+---
+title: ''
+output:
+  html_document:
+    highlight: textmate
+    theme: readable
+---
+  
+```{r setup, echo=FALSE, message=F, warning=F  }
+
+### This chunk is used for every tutorial
+
+library(knitr)
+
+# Identify machine and set directory
+rootDir1 <- "/Users/wsundstrom"
+rootDir2 <- "/Users/Derran"
+subDir <- "/Google Drive/R_SCU_resources/files42/data"
+
+if (file.exists(rootDir1)){
+    rootDir = rootDir1
+} else {
+  if (file.exists(rootDir2)){
+    rootDir = rootDir2
+  }
+}
+
+mainDir = file.path(rootDir, subDir)
+
+# Root drectory for knitr
+opts_knit$set(root.dir = mainDir)
+
+# The following allows markdown to find LaTex
+Sys.setenv(PATH=paste(Sys.getenv("PATH"),"/usr/texbin",sep=":"))
+
+# Set working directory 
+setwd(mainDir)
+
+# Load the packages (must have been installed)
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(WDI)
+library(gdata)
+library(doBy)
+library(XML)
+library(countrycode)
+library(erer)
+library(plyr)
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# set larger font size for qplot (default is 12)
+theme_set(theme_gray(base_size = 18))
+# function to calculate corrected SEs for regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+
+```
+
+<base target="_top"/>
+
+_Guide to R for SCU Economics Students, v. 3.0_
+
+*** 
+
+## Guide to R For SCU Economics Students
+
+__Web Version 3.0, September 11, 2015__
+
+This guide was designed for use by Economics majors at Santa Clara University. The Guide consists of tutorials that will help you learn how to conduct a variety of statistical analyses and manage your data in R. The tutorials refer to accompanying R scripts and sample data sets, which can be downloaded [here](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0): The file _files42.zip_ contains all the tutorials and data sets. 
+
+For each tutorial, you should open the accompanying script in RStudio and follow the instructions in the tutorial step by step, running the lines of script as called for, and examining the results. The later tutorials build on the earlier ones, so do them in order.
+
+History:
+
+* Version 1.0 was prepared by William A. Sundstrom and Bobby Fatemi, September 2012.
+* Version 2.4 edited by Michael Kevane
+* Versions 1.1 -- 2.3 edited by William A. Sundstrom
+* Version 3.0 edited by William A. Sundstrom and Michael Kevane, with assistance from Derran Cheng
+
+This is a work in progress. Feedback of any kind is welcomed! Please contact Bill Sundstrom, wsundstrom@scu.edu , or Michael Kevane, mkevane@scu.edu , Dept. of Economics, Santa Clara University.
+
+© William A. Sundstrom, 2012, 2013, 2014, 2015
+
+This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported [license](https://creativecommons.org/licenses/by-nc-sa/3.0/).
+
+*** 
+
+### Contents
+
+[Introduction](http://rpubs.com/wsundstrom/intro)
+
+[1. Getting started](http://rpubs.com/wsundstrom/t_start)	
+
+[2. Scripts and data](http://rpubs.com/wsundstrom/t_rbasics)
+
+[3. Descriptive statistics](http://rpubs.com/wsundstrom/t_rdesc)
+
+[4. Graphs](http://rpubs.com/wsundstrom/t_graphs)
+
+[5. Regression analysis](http://rpubs.com/wsundstrom/t_regbasics)
+
+[6. Multiple regression](http://rpubs.com/wsundstrom/t_multreg)
+
+[7. Merging two data sets](http://rpubs.com/wsundstrom/t_merge)
+
+[8. Nonlinear regression](http://rpubs.com/wsundstrom/t_nonlinear)
+
+[9. Binary dependent variables](http://rpubs.com/wsundstrom/t_binary)
+
+[10. Regressions with panel data](http://rpubs.com/wsundstrom/t_panel)
+
+[11. Instrumental variables](http://rpubs.com/wsundstrom/t_ivreg)
+
+[12. Models with sample selection](http://rpubs.com/wsundstrom/t_selection)
+
+[Appendix: Data sets used in the tutorials](http://rpubs.com/wsundstrom/data_appendix)
+
+[Downloads: R tutorial scripts, data files, or zip file (files42.zip) containing all](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0)
+
+***

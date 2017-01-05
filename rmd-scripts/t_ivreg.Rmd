@@ -1,0 +1,260 @@
+---
+title: ''
+output:
+  html_document:
+    highlight: textmate
+    theme: readable
+---
+
+```{r setup, echo=FALSE, message=F, warning=F  }
+
+### This chunk is used for every tutorial
+
+library(knitr)
+
+# Identify machine and set directory
+rootDir1 <- "/Users/wsundstrom"
+rootDir2 <- "/Users/Derran"
+subDir <- "/Google Drive/R_SCU_resources/files42/data"
+
+if (file.exists(rootDir1)){
+    rootDir = rootDir1
+} else {
+  if (file.exists(rootDir2)){
+    rootDir = rootDir2
+  }
+}
+
+mainDir = file.path(rootDir, subDir)
+
+# Root drectory for knitr
+opts_knit$set(root.dir = mainDir)
+
+# The following allows markdown to find LaTex
+Sys.setenv(PATH=paste(Sys.getenv("PATH"),"/usr/texbin",sep=":"))
+
+# Set working directory 
+setwd(mainDir)
+
+# Load the packages (must have been installed)
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(gdata)
+library(doBy)
+library(plm)
+library(ivpack)
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# set larger font size for qplot (default is 12)
+theme_set(theme_gray(base_size = 18))
+
+### functions for correct SEs in regression tables
+
+# function to calculate corrected SEs for OLS regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+
+# clustered SEs, clustered on "group"... could also cluster on "time" 
+# compute Stata-like degrees of freedom adjustment for number of groups
+# See http://www.richard-bluhm.com/clustered-ses-in-r-and-stata-2/
+
+clse = function(reg) { 
+  # index(reg, "id") returns the id or entity variable vector 
+  G = length(unique(index(reg,"id")))
+  N = length(index(reg,"id"))
+  dfa = (G/(G - 1))   # note Bluhm multiplies this by finite-sample df adjustment
+  rob = sqrt(diag(dfa*vcovHC(reg, method="arellano", type = "HC1", 
+                             cluster = "group")))
+  return(rob)
+}
+
+# corrected SEs for IV regressions
+ivse = function(reg) {
+  rob = robust.se(reg)[,2]
+  return(rob)
+}
+
+```
+
+```{r prelim, echo=FALSE, message=F, warning=F  }
+
+### This chunk is for any data and regression steps used throughout the tutorial
+
+### IV example from AER package
+
+### data
+
+data("CigarettesSW", package = "AER")
+# use just 1995 data
+cigs = subset(CigarettesSW, year==1995)
+
+### New variables
+
+# deflate by CPI to get real values
+cigs$rprice = cigs$price/cigs$cpi
+cigs$rincome = (cigs$income/cigs$population)/cigs$cpi 
+
+# log values are used in the regressions
+# note that you could create thes in the fly within the regression commands
+cigs$lprice = log(cigs$rprice)
+cigs$lquant = log(cigs$packs)
+cigs$lincome = log(cigs$rincome)
+
+# tdiff = the real tax on cigarettes arising
+# from general sales tax, used as instrument in SW textbook
+cigs$tdiff = (cigs$taxs - cigs$tax)/cigs$cpi
+
+# regressions we need later:
+iv1 = ivreg(lquant ~ lprice | tdiff , data = cigs)  
+iv2 = ivreg(lquant ~ lprice + lincome | lincome + tdiff + I(tax/cpi),
+            data = cigs)
+  
+```
+
+<base target="_top"/>
+  
+_Guide to R for SCU Economics Students, v. 3.0_
+
+*** 
+  
+## Instrumental variables regression
+  
+***
+  
+#### In this tutorial you will learn how to:
+  
+* Run regression models with instrumental variables (two-stage least squares)
+* Obtain correct standard errors 
+* Run various diagnostic tests
+
+***
+  
+#### Where to find what you need:
+
+* [Guide to R: Home](http://rpubs.com/wsundstrom/home)
+* [Downloads: R tutorial scripts and data files](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0)
+
+***
+  
+### Introduction 
+  
+Instrumental-variables (IV) regression is a widely used technique for dealing with endogeneity problems-- namely, when one or more of the regressors (X) is correlated with the error term (u). When this is true, the estimated OLS coefficient on the endogenous X is biased and inconsistent. IV regression rests on finding a variable (or variables) that is correlated with X but uncorrelated with u. Such a variable is called an instrumental variable (IV), or just an _instrument_. Your textbook will discuss in greater detail the requirements for a valid instrument. In this tutorial, we focus on how to run IV regressions in R, using the packages _AER_ and _ivpack_. As usual, we will work through some examples from Stock and Watson, _Introduction to Econometrics_-- in this case, from Chapter 12.
+
+The example we will look at is a classic application of IV regression: estimating the price elasticity of demand for a product. In this case the product in question is cigarettes. Recall that the elasticity of demand is the percentage change in quantity demanded for a percentage change in price, moving along the demand curve. This can also be expressed as the slope of the relationship between the natural logs of Q and P. That is,
+
+$$elasticity = \epsilon = \frac{dQ_d/Q_d}{dP/P} = \frac{dln(Q_d)}{dln(P)}.$$
+
+It seems that we could simply use data on quantity and price to run a regression between the log-transformed values and obtain an estimate of the elasticity, as follows:
+
+$$lnQ = \alpha + \beta lnP + u, \,where \, \hat\beta \,is \,the \,estimate \,of \, the \,elasticity.$$
+
+The problem is, _combinations of quantity and price that we observe in the data reflect the forces of both demand and supply._ Therefore in general the relationship we estimate is neither a demand curve nor a supply curve, but usually a complex mix of shifting demand and supply curves.
+
+In the above regression model, _P_ is endogenous: it is correlated with the error term in the demand curve. Unobserved factors that increase demand will tend to increase the price as the equilibrium moves up the supply curve. Thus $\hat\beta$ is a biased estimate of the demand elasticity.
+
+To deal with this we will estimate the demand equation using IV. IV regressions are usually estimated using a procedure called _two-stage least squares_ (2SLS). The command `ivreg` estimates 2SLS using a slight modification of our familiar regression syntax.
+
+To get started, start RStudio and open the script *t_ivreg.R* in your script editor. Edit the `setwd(…)` command for your working directory. Check the list of packages in the `library` commands and make sure you have installed all of them. Then run the script from the top through the data section. 
+
+The data set _CigarettesSW_ is imported from the AER package, and is the same data used by S&W throughout chapter 12. We will be working with the 1995 cross-section of states, which is called _cigs_ in the tutorial. Note that we divide the prices by the CPI variable to obtain the "real" prices, though this is not strictly necessary when dealing with a single year of data.
+
+The variable we will use as an instrument is _tdiff_, which is the real tax on cigarettes arising from the state's general sales tax. The presumption is that in states with a larger general sales tax, consumers will tend to pay a higher price for cigarettes, but that the general tax is not determined by the cigarette market, so otherwise uncorrelated with cigarette demand.
+
+***
+
+### Running IV regressions in R
+
+As the name suggests and the Stock and Watson textbook explains, 2SLS involves estimating two regressions: In the first stage, the endogenous variable (log price in our example) is regressed on the instrument or instruments (_tdiff_), along with any other exogenous variables (controls). The estimated coefficients from the first-stage regression are used to predict the endogenous variable (log price). In the second stage, the dependent variable (log quantity) is regressed on the predicted values of the endogenous variable (predicted log price), along with the exogenous controls. If the instrument is valid, the estimated coefficient on the predicted endogenous variable in the second stage is an unbiased estimate of the desired parameter (in our case, the demand elasticity).
+
+In practice, statistical software often just reports the second-stage regression, which is what one is usually interested in. That is the case with the command we use, `ivreg`.
+
+***
+
+#### OLS and first-stage regressions
+
+Before we turn to the IV estimates, let's run the OLS regression (around line 110) and the stargazer table following it. What is the estimated price elasticity? _Remember, this estimate is probably biased because of the endogeneity of the price._ 
+
+Now let's take a quick look at what would be the first-stage regression, which is called `first1` in the script. Make sure you understand why this is the first-stage regression. Run it and note that the coefficient on the instrument, _tdiff_, is statistically significant (at what level?). This is important, as we shall discuss in class.
+
+*** 
+
+#### IV (2SLS) regressions
+
+Now let's turn to the actual IV regression. Note the syntax in the following `ivreg` command:
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+iv1 = ivreg(lquant ~ lprice | tdiff , data = cigs)
+
+```
+
+The part before the vertical line, `lquant ~ lprice`, is the (second-stage) regression we want to estimate: the demand curve. You enter it exactly as you would a regression in `lm`. The part after the vertical line, _tdiff_, is the instrument. If we had more than one instrument, we would enter them using a "+" sign (see below). Instruments should only appear after the vertical line.
+
+Note that in the `stargazer` command we use the _ivse_ function in `se=list(ivse(iv1))` to obtain corrected standard errors. 
+
+Run the first `ivreg` and the `stargazer` and examine the results. You might compare them with the OLS we ran before. What is the estimate of the demand elasticity here? Also, compare with the estimate presented in Stock and Watson (equation 12.11). You'll see a slight difference in the estimates SEs, due to a small difference in the formulas used.
+
+Note that we can have more than one instrument, and we can also include exogenous control variables. Let Y be the outcome (dependent) variable of interest (_lquant_ in our example), X be the endogenous variable (_lprice_), W be any exogenous regressors, not including instruments (see below), and Z be the instruments (_tdiff_ in our case). Then the syntax for `ivreg` is:
+
+```ivreg(Y ~ X + W | W + Z, ... )```
+
+__Important note:__ Endogenous variables (X) can only appear _before_ the vertical line; instruments (Z) can only appear _after_ the vertical line; exogenous regressors that are not instruments (W) must appear _both before and after_ the vertical line.
+
+Let's add an exogenous regressor: log per capita income. Why does this belong in a demand equation? Let's also add another instrument suggested in the book: the real tax on cigarettes `tax/cpi`, which we'll create in the regression. This gives us the specification in the textbook (12.16). Here's the code:
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+iv2 = ivreg(lquant ~ lprice + lincome | lincome + tdiff + I(tax/cpi),
+            data = cigs)
+
+```
+
+Run the above and the `stargazer` that follows it. 
+
+*** 
+
+#### Tests and diagnostics
+
+The instrumental variables method must be used with considerable caution. In general it is crucial to have a compelling case for the validity of your instrument(s). Although there are statistical tests that can help us judge, for the most part IV requires knowledge and judgment about the specific application. Section 12.4 in Stock and Watson offers a good discussion for our example.
+
+You can run some useful diagnostics on your IV regression using the `summary` command, as shown at the end of the script. Here's the code and the results:
+
+```{r, message=F, warning=F, comment=NA }
+
+summary(iv2, vcov = sandwich, diagnostics = TRUE)
+
+```
+
+*** 
+
+The top part of the table just presents the coefficients, etc. But the bottom portion, _Diagnostic tests_, contains some new information. Note the following:
+
+* Weak instruments: This is an F-test on the instruments in the first stage. The null hypothesis is essentially that we have weak instruments, so a rejection means our instruments are not weak, which is good.
+* Wu-Hausman: This tests the consistency of the OLS estimates under the assumption that the IV is consistent. When we reject, it means OLS is not consistent, suggesting endogeneity is present. If we accept the null, it essentially means that the OLS and IV estimates are similar, and endogeneity may not have been a big problem.
+* Sargan: This is a test of instrument exogeneity using overidentifying restrictions, called the J-statistic in Stock and Watson. It can only be used if you have more instruments than endogenous regressors, as we do in `iv2`. If the null is rejected, it means that at least one of our instruments is invalid, and possibly all of them.
+
+***
+
+### Summary
+
+___Key R commands (functions):___
+
+* `ivreg`: runs IV (2SLS) regressions (requires package `AER`)
+
+___Key points/ concepts:___
+
+* `ivreg` works a lot like `lm`.
+* The syntax for `ivreg` is as follows: `ivreg(Y ~ X + W | W + Z, ... )`, where X is endogenous variable(s), Z is instrument(s), and W is exogenous controls (not instruments).
+* Corrected standard errors can (and should) be incorporated into `stargazer` tables, requiring package `ivpack`.
+* Diagnostic tests can be conducted using `summary`.
+
+*** 

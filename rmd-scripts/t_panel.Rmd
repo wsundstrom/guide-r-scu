@@ -1,0 +1,318 @@
+---
+title: ''
+output:
+  html_document:
+    highlight: textmate
+    theme: readable
+---
+
+```{r setup, echo=FALSE, message=F, warning=F  }
+
+### This chunk is used for every tutorial
+
+library(knitr)
+
+# Identify machine and set directory
+rootDir1 <- "/Users/wsundstrom"
+rootDir2 <- "/Users/Derran"
+subDir <- "/Google Drive/R_SCU_resources/files42/data"
+
+if (file.exists(rootDir1)){
+    rootDir = rootDir1
+} else {
+  if (file.exists(rootDir2)){
+    rootDir = rootDir2
+  }
+}
+
+mainDir = file.path(rootDir, subDir)
+
+# Root drectory for knitr
+opts_knit$set(root.dir = mainDir)
+
+# The following allows markdown to find LaTex
+Sys.setenv(PATH=paste(Sys.getenv("PATH"),"/usr/texbin",sep=":"))
+
+# Set working directory 
+setwd(mainDir)
+
+# Load the packages (must have been installed)
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(gdata)
+library(doBy)
+library(plm)
+library(ivpack)
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# set larger font size for qplot (default is 12)
+theme_set(theme_gray(base_size = 18))
+
+### functions for correct SEs in regression tables
+
+# function to calculate corrected SEs for OLS regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+
+# clustered SEs, clustered on "group"... could also cluster on "time" 
+# compute Stata-like degrees of freedom adjustment for number of groups
+# See http://www.richard-bluhm.com/clustered-ses-in-r-and-stata-2/
+
+clse = function(reg) { 
+  # index(reg, "id") returns the id or entity variable vector 
+  G = length(unique(index(reg,"id")))
+  N = length(index(reg,"id"))
+  dfa = (G/(G - 1))   # note Bluhm multiplies this by finite-sample df adjustment
+  rob = sqrt(diag(dfa*vcovHC(reg, method="arellano", type = "HC1", 
+                             cluster = "group")))
+  return(rob)
+}
+
+# corrected SEs for IV regressions
+ivse = function(reg) {
+  rob = robust.se(reg)[,2]
+  return(rob)
+}
+
+
+```
+
+```{r prelim, echo=FALSE, message=F, warning=F  }
+
+### This chunk is for any data and regression steps used throughout the tutorial
+
+### Read the data sets
+
+data("Fatalities")
+
+# units used in SW
+# vehicle fatality rate (vehicle fatalities/ population)
+Fatalities$mrall=Fatalities$fatal/Fatalities$pop
+# fatality rate per 10000
+Fatalities$fatality_rate = Fatalities$mrall*10000
+
+reg1 = plm(fatality_rate ~ beertax,
+           data = Fatalities, index = c("state","year"), model="pooling")
+
+reg2 = plm(fatality_rate ~ beertax,
+            data = Fatalities, index = c("state","year"), model="within", effect="individual")
+
+reg3 = plm(fatality_rate ~ beertax,
+         data = Fatalities, index = c("state","year"), model="within", effect="twoways" )
+
+```
+
+<base target="_top"/>
+  
+_Guide to R for SCU Economics Students, v. 3.0_
+
+*** 
+  
+## Regressions with panel data
+  
+***
+  
+#### In this tutorial you will learn how to:
+  
+* Run regression models for panel data, including:
+    + Pooled model
+    + Fixed effects (FE) models
+    + Models in first differences (FD)
+* Correct standard errors using clustering
+
+***
+
+#### Where to find what you need:
+
+* [Guide to R: Home](http://rpubs.com/wsundstrom/home)
+* [Downloads: R tutorial scripts and data files](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0)
+
+***
+  
+### Introduction 
+  
+Panel data sets combine cross-section and time-series elements. Units of observation, such as individuals or states, are observed repeatedly over time. Special regression techniques for analyzing panel data allow us to control for characteristics of the cross-section units that do not vary over time and are not observable as variables in the data. A common way to do this is to estimate a model with _fixed effects._ As we shall see, fixed effects are essentially equivalent to including a separate dummy variable for each cross-section entity (but one).
+
+Our example here looks at the effect of alcohol taxes on traffic fatalities, using state-by-time data. Does raising the tax on beer reduce drunk driving deaths? The tutorial follows closely the analysis presented in Chapter 10 of Stock and Watson, _Introduction to Econometrics._ A convenient package, called _plm_, makes it easy to run fixed-effects (FE) models in R, as well as make some corrections to get correct standard errors on the coefficients.
+
+To get started, start RStudio and open the script *t_panel.R* in your script editor. Edit the `setwd(…)` command for your working directory. Check the list of packages in the `library` commands and make sure you have installed all of them. Then run the script from the top through the data section. 
+
+In section (1) of the script, note that there are three functions to calculate correct standard errors for different regression procedures. We will be discussing and applying these functions as needed when we create tables of regression results.
+
+The data set is imported from a package called AER, and is the same data used by S&W throughout chapter 10. Take a look quick look at the data by clicking on _Fatalities_ under __Data__ in the __Workspace__ (upper right panel). Note the structure of the data. The first seven rows are observations for the state of Alabama (state="al"), one observation for each year 1982-1988. Definitions of the variables can be obtained by searching on _Fatalities_ under the __Help__ tab.
+
+To replicate the regression results in S&W, we create a new variable for traffic fatalities per 10,000 population, which is called _fatality_rate_ here.
+
+Now look at the results of the `stargazer` command (descriptive statistics). Why is N = 336? Why is per capital income so low (average < $14,000)? 
+
+***
+
+### Cross-section regressions in levels and changes
+
+Our question is whether fatality rates were affected by the beer tax in a state. Before proceeding, make sure you can offer a simple argument for why an increase in the beer tax might be expected to reduce traffic fatalities. Your explanation should include a supply-and-demand diagram.
+
+Is it true? Let's start, as S&W do, by plotting the relationship between the beer tax (X) and the fatality rate (Y) in levels of the variables, for a cross-section of states at the beginning and ending years of the data set, 1982 and 1988. The `qplot` commands do this and add a regression line. Run each plot and look at the relationship in each case. Are you surprised?
+
+*** 
+
+#### Regressions in levels for 1982 and 1988 cross-sections
+
+Let's run the regressions for 1982 and 1988 and put them in a table. Make sure you understand the details, including the data `subset` command, and the `se=list(...)` correction in stargazer. Then interpret the results. For example, is the slope significantly different from zero?
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# Simple regressions for 1982 and 1988 cross sections, as in SW
+reg1982 = lm(fatality_rate ~ beertax,
+           data = subset(Fatalities, year==1982))
+reg1988 = lm(fatality_rate ~ beertax,
+           data = subset(Fatalities, year==1988))
+stargazer(reg1982, reg1988,   
+          se=list(cse(reg1982),cse(reg1988)), 
+          title="Simple cross-section regressions", type="text", 
+          column.labels=c("1982", "1988"), 
+          df=FALSE, digits=4)
+
+```
+
+*** 
+
+#### Regression for the change in the variables between 1982 and 1988
+
+We have a puzzling finding here, namely that states with higher beer taxes tend to actually have higher traffic fatality rates. Of course we have not controlled for anything, so maybe there is omitted variable bias (OVB)-- namely, there is something else about the states with high beer taxes that is correlated with traffic deaths. Can you think of what such an OV might be?
+
+We can take advantage of the panel structure of our data to control for any time-invariant characteristics of the states. As your book shows, if there are characteristics of a state that do not change over time, when we examine the change in our variable(s) of interest-- say, between 1982 and 1988-- those non-changing effects will cancel out.
+
+To accomplish this in R, we need to create a state cross-section sample in which each variable is the difference between the 1988 and 1982 values of that variable. There are various ways you could code this. 
+
+Scrolling down, you can see that our approach is to select the 1982 cross-section and merge it with the 1988 cross-section, by state. Then we can create the differences between 1988 and 1982. Carefully read through line by line and make sure you understand each step. For example, why did I rename the variables in the 1982 sample?
+
+Run these lines of code up to the scatter plot. Pause to take a look at the _datcross_ data set to make sure it looks right! There should be one row per state, and the _df_ and _db_ variables should represent the change between 1982 and 1988.
+
+Now run the scatter plot and the regression. Compare the results of the cross-section regressions in levels with the regression in differences. What do you learn?
+
+*** 
+
+### Pooled and fixed-effect FE) regressions
+
+The regression in differences (change between 1982 and 1988) is suggestive that there were omitted factors creating a spurious positive relationship between the beer tax and traffic fatalities in the simple cross sections. But it's too bad we did not take advantage of all the data for other years.
+
+So let's turn to regressions that use the full panel, with all seven years 1982-1988. To do this we make use of the package `plm`, which includes all the tools we need for dealing with panel data.
+
+The panel structure of our data means that an observation is defined by the value of two variables: the state and the year. In general we will refer to the cross-section unit as the "entity" (in our case, the state), and the time variable as the "time" or "period" variable (in our case, the year). 
+
+In each `plm` command, `index = c("state","year")` defines the first variable (state) as the entity and second (year) as the time variable.
+
+*** 
+
+#### Pooled regression
+
+We can use `plm` to run a straightforward OLS regression on the entire panel, which is usually called a "pooled" model (all the years are pooled into a big data set and treated as separate observations). We could run this using our old friend `lm` as follows:
+
+`lm(fatality_rate ~ beertax, ...)`,  
+
+but instead we will use the `plm` command with the option `model="pooling"` to obtain the pooled estimates:
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+reg1 = plm(fatality_rate ~ beertax,
+           data = Fatalities, index = c("state","year"), model="pooling")
+
+```
+
+*** 
+
+#### Fixed-effects (FE) regression 
+
+Before we look at the results in a stargazer table, let's run the fixed-effects (FE) model. In effect the FE model runs the pooled regression with a complete set of state dummy variables (all but one of the states, of course). In this case, each state is allowed its own intercept, so that the slope on the beer tax variable can be interpreted as the effect of a change in the tax _within-state_. The model implicitly assumes that within each state, the beer tax has the same _marginal_ impact on fatalities.
+
+Here's the code using `plm`. Note that in this case, `model="within"` means fixed effects for the entity variable, state. The option `effect="individual"` is not strictly necessary here, because it is the default option, but we'll see what it is about in a second.
+
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+reg2 = plm(fatality_rate ~ beertax,
+            data = Fatalities, index = c("state","year"), model="within", effect="individual")
+
+```
+
+To see what this FE regression is doing, let's go ahead and run another regression that explicitly includes a full set of state dummy variables. We can do this by including _state_ (a factor variable) as a regressor in OLS, as in `reg2a`. 
+
+Go ahead and highlight and run the three regression commands-- reg1, reg2, and reg2a-- and then the stargazer table to compare reg2 and reg2a. In the table, note that the `plm` FE results (reg2) include _only_ the slope estimate-- the intercept and state dummy coefficients are not explicitly calculated. 
+
+Now compare the two estimates of the slope on the beertax variable. What do you see? Note also the R^2^ for each regression. They are quite different. For now, I'll just note that they are not measuring the same thing. Examine the dummy variable estimates for reg2a. One state is missing: Which one? Why?
+
+Finally, note that we can also include period (year) FEs as well as state FEs. This would be like including a dummy variable for each year (but one). This is implemented in `plm` with the `effect="twoways"` option, includes in `reg3`. Now you can see what the `effect=` option is doing. Go ahead and run `reg3`. We'll look at the results below. 
+
+*** 
+
+#### Clustered standard errors
+
+An important feature of panel data is that there is often correlation between the errors within entities. This could be due to serial correlation-- essentially, persistent effects through time. In our example, suppose that for some reason, traffic fatalities in Arizona were unusually high in 1983. Serial correlation would mean that fatalities would likely continue to be somewhat higher than expected in 1984, and so on.
+
+When errors are correlated, the conventional estimates of the standard errors are incorrect. In many cases the estimated SEs are too small-- sometimes dramatically so-- which leads to excessive confidence in the precision of the results. Fortunately, we can correct the SEs for the existence of correlation across time periods within the entities using "clustered" standard errors. 
+
+Implementing clustered SEs with `stargazer` requires a different correction function from the old heteroskedasticity correction; the clustering function is defined earlier in the script as `clse`.
+
+*** 
+
+#### Comparing the results 
+
+Let's go ahead and run the following stargazer command comparing the pooled and FE models, all with clustered SEs-- here's the code and the results:
+
+```{r, message=F, warning=F, comment=NA }
+
+# put in a table with SEs clustered by state
+stargazer(reg1, reg2, reg3,  
+          se=list(clse(reg1),clse(reg2),clse(reg3)), 
+          title="Panel regressions, clustered SEs", type="text", 
+          column.labels=c("Pooled OLS", "State FE", "St-Yr FE"), 
+          df=FALSE, digits=4)
+
+```
+
+***
+
+Note that the regression in column (2) replicates equation (10.15) in the S&W textbook, while column (3) replicates (10.21). You can see that including fixed effects reverses the sign of the beer-tax coefficient, suggesting that in fact within states an increase in the tax is associated with reduced traffic fatalities.
+
+*** 
+
+#### Panel regression in first differences
+
+An alternative approach to taking advantage of the full panel is to run the regression in _first differences_. That is, we create new variables that represent the year-to-year change in each variable within a state: e.g., the change in the fatality rate in Alabama between 1982 and 1983, between 1983 and 1984, and so on. We then run the regression in these differences. This is closely related to the regression we ran above looking at the change between 1982 and 1988, but in this case we use all the year-to-year changes. 
+
+This is implemented in `reg4` using the `model="fd"` (short for "first difference") option in `plm`. The differenced variables are created automatically within the procedure, so we don't have to. 
+
+In the absence of bias due to endogeneity, the point estimates of the slopes from the FE and FD regressions should be similar, because in each case the regression is "sweeping out" any confounding effects that are constant within-state over time. If you run `reg4` and the `stargazer` command that follows it, you will see that this is not exactly the case here. This is difficult to interpret and may indicate a problem.
+
+*** 
+
+#### Adding covariates (Xs)
+
+As with any regression, we can add more variables to a fixed-effects regression. The reason to do so would be similar to why we add regressors in any regression: they may control for omitted effects and therefore mitigate OVB. Note: In FE or FD panel regressions, any additional covariates must be time-varying within the units-- states, in our example. Any variables that are constant over time within each state (such as the total land area of the state) would be perfectly collinear with the fixed effects. The regression `reg3a` adds a variable for spirits consumption to our FE regression.
+
+
+***
+
+### Summary 
+
+___Key R commands (functions):___
+
+* `plm`: runs various panel regressions (requires package `plm`)
+
+___Key points/ concepts:___
+
+* `plm` works a lot like `lm`.
+* `index = c("state","year")` is used to specify the entity and time variables.
+* `plm` options can be used to specify fixed effects for entities and/or time periods.
+* Clustered standard errors can (and should) be incorporated into `stargazer` tables.
+
+*** 

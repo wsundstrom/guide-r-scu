@@ -1,0 +1,534 @@
+---
+title: ''
+output:
+  html_document:
+    highlight: textmate
+    theme: readable
+---
+  
+```{r setup, echo=FALSE, message=F, warning=F  }
+
+### This chunk is used for every tutorial
+
+library(knitr)
+
+# Identify machine and set directory
+rootDir1 <- "/Users/wsundstrom"
+rootDir2 <- "/Users/Derran"
+subDir <- "/Google Drive/R_SCU_resources/files42/data"
+
+if (file.exists(rootDir1)){
+    rootDir = rootDir1
+} else {
+  if (file.exists(rootDir2)){
+    rootDir = rootDir2
+  }
+}
+
+mainDir = file.path(rootDir, subDir)
+
+# Root drectory for knitr
+opts_knit$set(root.dir = mainDir)
+
+# The following allows markdown to find LaTex
+Sys.setenv(PATH=paste(Sys.getenv("PATH"),"/usr/texbin",sep=":"))
+
+# Set working directory 
+setwd(mainDir)
+
+# Load the packages (must have been installed)
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(WDI)
+library(gdata)
+library(doBy)
+library(XML)
+library(countrycode)
+library(erer)
+library(plyr)
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# set larger font size for qplot (default is 12)
+theme_set(theme_gray(base_size = 18))
+# function to calculate corrected SEs for regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+
+```
+
+<base target="_top"/>
+
+_Guide to R for SCU Economics Students, v. 3.0_
+
+*** 
+
+## Scripts and data 
+
+***
+
+#### In this tutorial you will learn how to:
+
+* Open an R script in RStudio
+* Organize an R script
+* Set the working directory in your script
+* Install and load packages used in this course
+* Import data from a spreadsheet file into R
+* Clean and manipulate the data
+* Deal with a couple of common problems that arise when running R code
+
+***
+
+#### Where to find what you need:
+
+* [Guide to R: Home](http://rpubs.com/wsundstrom/home)
+* [Downloads: R tutorial scripts and data files](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0)
+
+***
+
+### Introduction
+
+In this tutorial we will take a look at a basic R script, run some preliminary commands to set up R, and then look at some actual data.   Statistical analysis involves manipulating data, so the most important first thing to learn is how to get data into the R programming environment.  R stores data in a format that R users call a data frame.  For most purposes this is equivalent to a data set, but R can also associate single numbers (scalars), lists and other vectors, and labels, etc. with a dataset. So a data frame is broader than just a data set.
+
+This guide emphasizes the usage of scripts. Good data analysis practice is to start with a raw, original data set and then have every single manipulation or transformation of the original data set stored in a script. That way, any person can take the original data and replicate the analysis.  Perhaps they (or you!) will find a mistake. A script is vastly superior to transforming data in Excel. If you use Excel to transform data (by, for example, creating a new variable based on existing data) there is often no record of the transformation (except in your head). Countless researchers have been embarrassed to admit that they cannot replicate their original analysis (we include ourselves in that list). It was not common practice to insist on a script enabling replication in the social sciences. Most social scientists transformed their data extensively in Excel prior to statistical analysis. They no longer are able to reproduce those transformations.
+
+*** 
+
+### Open a script
+
+To get started, open RStudio (Note: this also opens R; you do not need to open R separately). Under the Files tab (in the lower right frame called Session Management), go to your working directory. The working directory is the folder you created in Tutorial #1, named something like econ42, which should contain all your R scripts and data sets. 
+
+To find it, you can click on the three dots as indicated by the arrow in the screen shot, and then browse through your directories to the folder.  Open the files42 folder. The R scripts and data sets you downloaded should appear in the file list.  Find and click on the file *t_rbasics.R*. The script should open in your script editor (upper left). The script editor works pretty much like a simple word processor.
+
+![ ](fig2.1.png)
+
+*** 
+
+#### Script format
+
+In the editor window, scroll through the *t_rbasics.R* script to see what it looks like. 
+
+Recall that lines beginning with the "hashtag" symbol # will be ignored by R. We use these lines to insert comments and other information about what the script is doing, and to break the script into sections. 
+
+It is good practice always to follow the format of this tutorial for your R scripts, with a brief title, then YOUR NAME and the date, followed by a short description of what the script does. Every line that is part of a comment must start with a # sign, or else R will treat it as a command and give you an error message.
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+#==============================================================================
+#   Data Analysis Tutorial #2: Script basics, import data
+#==============================================================================
+
+# original Bill Sundstrom 9/1/2014
+# edits by Michael Kevane 12/28/2014
+# Latest version: Bill Sundstrom 8/14/2015
+
+# Description: Script format, install packages, set options, import and describe 
+# CA school district data
+
+```
+    
+
+Following the title and description, the script is organized into three main sections:
+
+1. Settings, packages, and options
+2. Data section
+3. Analysis section (empty in this script... see later tutorials)
+
+The Settings section contains useful information to your future self (a year from now you might want to use a script, but without the Settings section you may no longer remember what the script is doing).
+
+In the Data section, you will import your data set, create any new variables, and create any new subsamples of the data. Here is also where you run some descriptive statistics to see what is in the data.
+
+In the Analysis section you will create tables and plots to describe the data, and conduct any analysis—in particular, regressions.
+
+Whenever you need to write a script, you can simply modify an existing script and then “save as” using a new filename reflecting the assignment or exercise (e.g. Save as… *Mypractice_script_1*).
+
+*** 
+
+### Settings
+
+The first main section of the script is 
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+#==================================================================
+#   1. Settings, packages, and options
+#==================================================================
+
+```
+
+The lines of code in this section set your working directory, load the packages we will often use in this course, turn off scientific notation so numbers will be easier to read, and do a few other useful things. _This section or one very similar should be at the start of each of your scripts._
+
+_Clear the working space:_  The first little instruction to R will clear your working space, which means it will remove data sets and results that are in R’s memory. This is like starting your R session with a clean slate. 
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# Clear the working space
+rm(list = ls())
+
+```
+
+_Set the working directory:_ You need to set the working directory so that when you ask R to import, analyze and save data sets, R knows where to find them on your computer. 
+
+* Edit the `setwd(…)` command for your working directory (folder), replacing the part inside the quotes with the full path name of your folder.
+
+* IMPORTANT: whether you use a Mac or Windows machine, the slash symbols in the `setwd(…)` path must be “forward” ( / ) slashes, not “backward” ( \ ).
+    
+```{r, eval=FALSE, message=F, warning=F  }
+
+# Set working directory (edit for YOUR econ 42 folder)
+setwd("/Users/wsundstrom/Dropbox/econ_42")
+
+```
+    
+    
+_Install and load packages:_ A package in R is like an “add-in” for Excel or a downloadable app for your phone. Some packages come as standard equipment with R, but some must be downloaded and installed. A package has its own set of commands and help documentation.  You can type any package name + R into Google, and you will almost always find helpful hints, summaries and documentation.
+
+The packages we will use in these tutorials are called "sandwich", "lmtest", "car", "stargazer", "AER" , "ggplot2", "openintro", "OIdata", "WDI", "gdata", "doBy", "countrycode", and "erer". We’ll see what they do later. 
+
+Packages need only be installed once. This process downloads some files and makes them available to R. 
+
+The command to install the packages we use in this course is the following:
+   
+```{r, eval=FALSE, message=F, warning=F  }
+
+install.packages(c("sandwich", "lmtest", "car", "stargazer", "AER",
+                   "ggplot2", "openintro", "OIdata", "WDI", "gdata", "doBy", "erer"))
+
+```
+
+Whereas you only have to install a package onto your computer once, packages you want to use in an analysis must be loaded into R every time you start a new R session. The `library(…)` commands load the packages. By including these commands in all your scripts and running them every time you start up RStudio, you will not need to worry about remembering to do it.
+  
+```{r, eval=FALSE, message=F, warning=F  }
+
+# Load the packages 
+# must have been installed, as above
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(WDI)
+library(gdata)
+library(doBy)
+library(countrycode)
+library(erer)
+
+```
+
+*** 
+
+The remaining lines of code in Section 1 are some settings for numbers, graphics, and regressions that will be helpful later on. 
+
+Now run the entire top section of code. Highlight all the lines from the ___very top___ of the script through all of Section 1 (remember you can also highlight by clicking on the line numbers rather than the actual lines), and click the __Run__ button:
+
+![alt text](fig2.2.png)
+
+*** 
+
+You should see in the __Console__ (lower left) that the packages installed and loaded.  You will see a lot of R text appearing.  This does not necessarily indicate a problem.  R uses red script sometimes simply to highlight important information.  So skim the script that appears; unless it explicitly says that the download failed, you are alright.
+
+Once your packages are installed and loaded, click on the __Packages__ tab in the __Session Management__ box (lower right). You should see the names of the packages you added in the list, with check marks for the ones that are loaded. 
+
+*** 
+
+### Data section
+
+Most data that you will analyze will come in the form of a spreadsheet, which organizes data in rows and columns. Excel format is the most common format for spreadsheets. But a simpler form, called the “comma separated value” or csv format, is loaded into R with ease.  
+
+This data section of a script reads in and manages the data. R has its own format for data, so we need to read the data from its original “.csv” file and create a “dataframe” in R.
+
+*** 
+
+#### How to enter a small data set “by hand” 
+
+Before we import the spreadsheet data, note that it is possible to enter data “by hand” into R, putting the numbers directly in the script. The first few lines in the data section show you how:
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# Data can be entered directly in your script
+# Simple example: each variable is created as a vector
+age = c(25, 30, 56)
+gender = c("male", "female", "male")
+weight = c(160, 110, 220) 
+# Assemble the variables into a data set
+mydata = data.frame(age,gender,weight)
+# take a look at the data
+mydata
+
+```
+
+This data set will have three people in it (N = 3), and three variables: age, gender, and weight. We enter each variable as a vector (that’s what the c(...) means), and then put them together into a single data set (last line above). Note that the first person in the data set is age 25, male, and weighs 160 pounds. Obviously it is important to enter the numbers in the correct order.
+
+Highlight the above lines in your script and hit the Run button. Now look under Data in the Workspace (upper right). You should see an entry for the new data frame, mydata. If you click on it, a new window will open in your script editor area, showing you the data in a spreadsheet-like format.
+
+In most applications, you will be obtaining your data from some external source, often as a spreadsheet. So from now on, we will seldom if ever be entering data in the script this way.
+
+*** 
+
+#### Importing data from a spreadsheet
+
+Let’s continue through the next lines of the script. In this case we start working with a data set we will use repeatedly throughout the quarter, the California test score data. This data set consists of information on 420 elementary school districts in California, including average 5th-grade standardized test scores, student-teacher ratios, etc. Our goal (eventually) is to determine whether class size reductions increase test scores. A description of the data is provided on Camino and in an appendix to this document.
+
+The spreadsheet we will import is _caschool.csv_. A .csv file is a data set whose entries are separated by commas. As you know, in Microsoft Excel, the default file extension is typically .xls or .xlsx. It is possible to read excel files directly into R, but when dealing with spreadsheet data, it is best to save a copy as a .csv file, because comma separated value files are simpler and less prone to formatting issues. 
+
+If you are in Excel and want to save an excel spreadsheet as .csv (not necessary here), before saving it make sure the first row contains the names of the variables (no spaces in the names!) and the data start on the second row. Then use “save as” and find the CSV option. This will only save the active worksheet in an excel file.  (Remember, some Excel files have multiple worksheets; when you save as csv, only the open worksheet is saved.  Also, the csv format stores cells as numbers/values, and does not save formulas.)  
+
+___IMPORTANT: Always read the data into R using a read command in your R script.___  
+___DO NOT click on the .csv file to open it.___
+
+Here’s how to do it. Highlight and run the following line (around line 75 in the script):
+
+  
+```{r, eval=FALSE, message=F, warning=F  }
+
+caschool = read.csv("caschool.csv", header=TRUE, sep=",")
+
+```
+
+Look under __Data__ in the __Workspace__ (upper right). You should now see an entry for the new data frame, _caschool_. 
+
+This simple command `read.csv(...)` line has several features you will see in R over and over.
+
+* First, the command creates a new “object”, which is called caschool. In this case caschool is a data frame, which is what we call data sets in R.
+
+* Second, in the parentheses of the command that created caschool, we have several arguments separated by commas (this is typical of many R functions): 
+
+    + `"caschool.csv"` is the name of the csv file (in quotes)
+    + `header=TRUE` tells R that the first row contains the variable names
+    + `sep=","` tells R that the data are comma separated (not strictly necessary here).
+    
+Under Data in the Workspace (upper right), click on the data name, _caschool_ (If you click on the blue button, this will display the variable names and a small preview of the data). This should open the data set in what looks like a spreadsheet in the script editor window. Take some time to examine the spreadheet.
+
+The units of observation (school districts) are in the rows, and variables are in the columns. Most of the values taken by variables are “numeric,” in the sense that each individual value is a number, but some contain “strings” (words, etc.), such as county and district. When R reads a variable, it takes its best guess as to what kind of variable it is; string variables like county will typically be treated as factor variables. A factor variable is categorical, and qualitative (not quantitative): thus an observation (school district) is either in Santa Clara County, or in Los Angeles County, or in one of the other counties.
+
+*** 
+
+#### Making new variables
+
+__IMPORTANT__: When we refer to a variable, the format is the name of the dataframe (caschool), then the $ sign, followed by the variable name (smallclass), all with no spaces. Hence `caschool$smallclass` is the variable _smallclass_ in the data frame _caschool_. This way R knows which data set to look in, if you have more than one. (An exception is commands that allow you to specify the data set.)
+
+Now let’s create a new variable in our data set. Highlight and run the next line: 
+
+```caschool$smallclass = caschool$str<20```
+
+This creates a new variable in the data set called smallclass, which takes the value TRUE if the student-teacher ratio (str) is less than 20, and FALSE otherwise. We call such a variable a binary or dummy variable. 
+
+Click on caschool again and look at the data. The very last variable is the new variable smallclass. Note that it takes values of “TRUE” or “FALSE”. In many applications, R actually treats TRUE as the number 1, and FALSE as the number 0.
+
+You can also create new variables using mathematical formulas, such as `caschool$strsq = caschool$str^2`. Math expressions in R are generally similar to Excel. 
+
+_What is wrong with this code?_
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# Natural log of earnings
+acs$lnearn = log(incwage)
+# potential years work experience
+exper = acs$age - acs$educ_years - 5
+
+```
+
+Answer: In creating the variable _lnearn_, R will not know where to find the variable _incwage_; in creating _exper_, R will not know what data set to put it in, so it will not be accessible for further calculations. 
+
+_Here is the fully correct code:_
+  
+```{r, eval=FALSE, message=F, warning=F  }
+
+# Natural log of earnings
+acs$lnearn = log(acs$incwage)
+# potential years work experience
+acs$exper = acs$age - acs$educ_years - 5
+
+```
+
+Note that the second block of code correctly creates a variable that is the natural log of earning, then a variable measuring “potential experience,” and both are properly “addressed” to be in the the acs data frame.
+
+*** 
+
+#### Obtaining data from a web server
+
+Very often you will be able to download data directly from a website into R. That is because programmers have written R code packages to interact directly with web servers. See for example www.quandl.com for examples of data that is available.
+
+One very easy-to-use R package is the WDI package.  This package interacts with the World Bank’s World Development Indicators website, and can be used to extract data directly from the website into R. 
+
+The script t_rbasics.R contains code to access World Bank data. Find the relevant section of code, highlight and run.  
+
+The first command (which is very long) defines a set of 12 variables to be downloaded from the World Bank website.  The list gives the World Bank’s names for the variables, and then after a hashtag inserts a more descriptive comment of what the variable means.  (It is fun to learn some of the acronyms: SMAM means singulate mean age at marriage and is “average length of single life expressed in years among those who marry before age 50.” Who knew?)
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# Create a list of variables to import 
+wdilist <- c("NY.GDP.PCAP.PP.KD", # GDP per capita,
+  	# PPP (constant 2005 intl $)
+ "SP.POP.GROW", # Population growth (annual %)
+ "SP.POP.TOTL", # Population, total
+ "SP.POP.TOTL.FE.ZS", # Population, female (% of total)
+ "SP.URB.TOTL.IN.ZS", # Urban population (% of total)
+ "SP.POP.BRTH.MF", # Sex ratio at birth 
+    # (females per 1000 males)
+ "SP.DYN.LE00.IN", # Life expect at birth, total 
+                   # (years)
+ "SP.DYN.LE00.FE.IN", # Life expect, female (years)
+ "SP.DYN.LE00.MA.IN", # Life expect, male (years),
+ "SP.DYN.SMAM.MA", # Age at first marriage, male
+ "SP.DYN.SMAM.FE", # Age at first marriage, female
+ "SP.DYN.IMRT.IN", # Infant mortality rate
+ "SP.DYN.TFRT.IN") # Fertility rate,(births per woman) 
+
+```
+
+Notice the first open parenthesis after the c, and the final close parenthesis on the last line before the hashtag.  
+
+The next block of code instructs R to go to the Internet via the WDI command and get the values for the list of variables, for all countries and regional aggregates, for the year 2010.
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# Extract latest version of desired 
+# variables from WDI.
+# This may take a few minutes, 
+# depending on connection speed
+
+wdim = WDI(country="all", indicator = wdilist, 
+       extra = TRUE, start = 2010, end = 2010)
+
+```
+
+It may take a minute or two for the WDI data to be downloaded from the web. Obviously, your computer must be connected to the Internet to access data remotely. The handy plyr package in R has a command rename that can be used to rename the variables with something more intelligible.
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# Rename the variables
+wdim <- rename.vars(wdim,c("NY.GDP.PCAP.PP.KD",
+    "SP.POP.TOTL"), c("GDPpcUSDreal","population"))
+wdim <- rename.vars(wdim, c("SP.POP.TOTL.FE.ZS",
+     “SP.URB.TOTL.IN.ZS"),c("femaleperc","urbanperc))
+wdim <- rename.vars(wdim, c("SP.POP.BRTH.MF",
+    "SP.DYN.LE00.IN"), c("sexratiobirth","lifeexp"))
+wdim <- rename.vars(wdim, c("SP.POP.GROW"), 
+     c("popgrow"))
+wdim <- rename.vars(wdim, c("SP.DYN.LE00.FE.IN",
+    "SP.DYN.LE00.MA.IN"), c("lifexpfem","lifeexpmale"))
+wdim <- rename.vars(wdim, c("SP.DYN.SMAM.MA",
+    "SP.DYN.SMAM.FE"), c("smammale","smamfemale"))
+wdim <- rename.vars(wdim, c("SP.DYN.IMRT.IN",
+    "SP.DYN.TFRT.IN"), c("infmort","fertility"))
+```
+
+Each line starts with the data frame name, wdim, followed by the <- sign.  R users often prefer <- to =, for reasons that economists cannot explain.  Perhaps the idea is that stuff on the right will transform or turn into what is on the left. So a new data frame wdim is created by the operations to the right of the <- sign.
+
+Notice that we repeat the rename command several times.  We could have created one long list, and renamed all the variables, but we might have risked getting the order wrong, and then we would rename a variable into a name that was for another variable.  To avoid confusion, we prefer to repeat the command and just rename two variables at a time.  Sometimes in coding it pays to be cautious instead of elegant.
+
+There is a variable in the data frame called region, which assigns a region for every country.  We want to remove observations that did not correspond to a country, but rather for the aggregate of the region.  So we clean the data frame by taking out the observations that are aggregates for the regions, thus leaving only countries.
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# Take out the entries that are aggregates 
+# (eg East Asia) and not countries
+wdim = subset(wdim, !( region=="Aggregates")) 
+```
+
+This is a good example of the subset command.  Here the “not” symbol ! or ~=  is used to subset the data as long as region is not equal to “Aggregates.”  The double == sign here is used to specify that region must be equal to a specific value.
+
+The region variable is a factor variable in R.  A factor variable is a vector of integer values with a corresponding set of character values, called the levels, which are called whenever the factor variable is displayed. The levels are where the string (text) names for the regions are stored.  That way the data frame greatly economizes on size.  Suppose there were 100 countries each observed for 50 years. That would mean 5,000 observations in the data frame. If the region variable were a regular string variable containing the full text of the region, and supposing the text averaged 20 letters, then just storing the names of the regions for the 5,000 observations would involve 5,000 x 20 = 100,000 characters.  But by storing each region as a factor variable, a single-digit number, and then having levels, one for each number, the data frame only needs to have 5,000 + 7 = 5,007 characters.  The amount of data stored is reduced by a factor of 20!
+
+*** 
+
+#### Use a subset of observations or variables
+
+Sometimes it is convenient to create a new sample that consists of just a subset of the observations, say with some set of characteristics, or a subset of the variables. The next two commands show examples of this. The first creates a data set consisting of the African countries in the wdim data. The line after this one creates a new data set with just the country names and the two income-related variables.
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# Create a new data set that is just the African 
+# countries in wdim
+wdi_africa = subset(wdim, region=="Sub-Saharan 
+Africa (all income levels)")
+# Create a new data set that is just the income 
+# variables in wdi
+wdim_income = wdim[c("country", "GDPpcUSDreal", "femaleperc")]
+
+```
+
+The Africa subset should have observations for 47 countries.  The income subset should have 212 observations for the three variables selected.  You can confirm that by looking at the Workspace or Environment frame. The region variable used in the first command is a factor variable with labels for the different levels.  How to find out what string corresponds to what region? Use the command `levels(wdim$region)`.
+
+Note that an alternative to naming a new data set is simply to select the desired subsample within the statistical procedure, e.g., lm(Y ~ X, data=subset(…)).  Future tutorials will demonstrate this technique.
+
+***
+
+### Head-scratching problems in R
+
+1. Notice the command prompt > in the Console area (lower left).  The most important typical problem is when you run code that contains an open parenthesis (, or open brace {, or open bracket [, or open quote “, and then do not close it in the same block of commands that you have highlighted.  R now “thinks” you have opened a long command.  If it does not receive the close parenthesis, it will simply “wait” and will indicate it is waiting with a + sign in the console area (see above for the console) instead of the command prompt >.  Any other commands you enter by highlighting and running will simply not be recognized.  R thinks they are now part of an even longer command, and continues to wait for a close parenthesis.  
+
+* To solve this problem, move your cursor down into the Console area next to the + sign, and hit the Esc (escape) button in upper left of your keyboard.  Alternatively, type and run a close parenthesis (or bracket or brace or “) to get out of limbo.  [If you are a fan of the TV show “Lost,” you will remember the command prompt > and perhaps even the numbers that Locke and Desmond had to enter…]  
+
+2. This problem is closely related to another problem that especially affects some Mac users.  When you cut and paste code, say from a pdf file, sometimes when you paste it into R Studio, the code has “hidden junk”.  When you run the code, you will see that “junk” appear in the Console area. You will be tempted to say some junk yourself: *&^%$)&^%!!!!!  Or you might see text in the Console, or part of the command.  Here, you have asked R to “run” junk commands, and R has no idea what to do.  You will get an error message or the plus sign.  
+
+* Unfortunately for Mac users, solving this problem is not so easy, because you cannot “see” the junk.  In some apps, holding down Shift+Option+Command+V will paste without formatting. You may also want to paste first into a simple TextEdit program in the Mac, and then cut and paste again. Sometimes that will “strip” away junk hidden formatting.  As a last resort, you type the commands again yourself. Sigh. Windows users can use Ctrl-Shift-V, which will paste without formatting, or cut and paste into Notepad (in Accessories) and then cut and paste again.
+
+*** 
+
+### Clean up a workspace; save and retrieve data
+
+By now you may have a lot of data sets and results in your workspace (upper left window in RStudio). You can remove everything by hitting the Clear button (the little broom). CAUTION: This will remove everything from the workspace! You will then have to re-create any data sets etc. before doing further analysis.
+
+The good thing is that you have a script that can reproduce your data sets exactly. That’s why we clear the workspace at the start of every script. So: no worries.
+
+If you want to get rid of just a few of the data sets in the workspace, you can use the rm command. Run the following command in the script, and notice that the data sets disappear from the workspace: 
+
+`rm(list = ls())`
+
+All of the scripts you write should have this command at the very beginning: it is good practice to make sure you clear all datasets before running a script, to prevent your script from accidentally making use of a dataframe “left over” from an earlier session.
+
+*** 
+
+#### Saving a data frame in R
+
+Generally it is better to create data sets from the original csv files every session. This is best practice because it makes results entirely replicable. But you can save a data set to a file on your computer, and retrieve it later. This can be useful if you are using really big data and the data processing takes a lot of time. The last few lines of the tutorial show how to save the data to a file and retrieve it using the save and load commands. Note that the data set will have its original name when you retrieve it (wdim in this case).
+
+You can also use the command write.csv to save data in an Excel spreadsheet readable format.  This can be helpful if you are sharing the data with other users.
+
+*** 
+
+#### Finishing your R session
+
+When you are finished and go to exit RStudio, it will ask you if you want to “save workspace image.” In this course it is not necessary to do this, because each script will import and analyze all the data from scratch each time. You can also name and save a permanent copy of any data frame that you have created. We don’t typically do this here, because we will re-create the data frame from the raw csv file each time, which is best practice for replicability.
+
+***
+
+### Summary
+
+___Key R commands (functions):___
+
+* `setwd`: sets the working directory 
+* `install.packages`: downloads and installs add-in packages 
+* `library`: loads packages 
+* `options(scipen = …)`: sets the number format
+* `read.csv`: reads a .csv data set into R dataframe
+* `rm`: remove objects from the workspace
+* `save`: save a data frame or other objects to a file
+* `load`: retrieve a saved data frame or other object
+* `write.csv`: save a data set in csv format
+
+___Key points/ concepts:___
+
+* Working directory must be the complete “path” to your folder.
+* Packages need only be installed once, but must be loaded (library) every time you start R and want to use that package.
+* Variable names format:  dataframe$variablename
+* Create new variables using = and logical operators.
+* Factor variables are categorical, such as county of residence.
+* Subsample of data: subset(dataset, condition) 
+* If R “hangs,” try moving the cursor to the console and hit the esc button.
+
+*** 
+

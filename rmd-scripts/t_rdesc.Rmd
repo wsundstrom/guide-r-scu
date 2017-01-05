@@ -1,0 +1,261 @@
+---
+title: ''
+output:
+  html_document:
+    highlight: textmate
+    theme: readable
+---
+  
+```{r setup, echo=FALSE, message=F, warning=F  }
+
+### This chunk is used for every tutorial
+
+library(knitr)
+
+# Identify machine and set directory
+rootDir1 <- "/Users/wsundstrom"
+rootDir2 <- "/Users/Derran"
+subDir <- "/Google Drive/R_SCU_resources/files42/data"
+
+if (file.exists(rootDir1)){
+    rootDir = rootDir1
+} else {
+  if (file.exists(rootDir2)){
+    rootDir = rootDir2
+  }
+}
+
+mainDir = file.path(rootDir, subDir)
+
+# Root drectory for knitr
+opts_knit$set(root.dir = mainDir)
+
+# The following allows markdown to find LaTex
+Sys.setenv(PATH=paste(Sys.getenv("PATH"),"/usr/texbin",sep=":"))
+
+# Set working directory 
+setwd(mainDir)
+
+# Load the packages (must have been installed)
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(WDI)
+library(gdata)
+library(doBy)
+library(XML)
+library(countrycode)
+library(erer)
+library(plyr)
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# set larger font size for qplot (default is 12)
+theme_set(theme_gray(base_size = 18))
+# function to calculate corrected SEs for regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+
+# data
+caschool = read.csv("caschool.csv", header=TRUE, sep=",") 
+caschool$smallclass = caschool$str<20
+
+```
+
+<base target="_top"/>
+
+_Guide to R for SCU Economics Students, v. 3.0_
+
+*** 
+
+## Descriptive statistics 
+
+***
+
+#### In this tutorial you will learn how to:
+
+* Create tables that describe the data you have loaded in R
+* Create frequency tables
+* Create tables of means of variables according to categorical variables (crosstab)
+* Conduct t-test of difference in means
+
+***
+
+#### Where to find what you need:
+
+* [Guide to R: Home](http://rpubs.com/wsundstrom/home)
+* [Downloads: R tutorial scripts and data files](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0)
+
+***
+
+### Introduction
+
+Once data has been loaded into R, it is time to analyze it.  Analysis generally takes three forms: tables of descriptive statistics, graphical displays in the form of charts (also known as figures), and regression analysis.
+
+*** 
+
+#### Getting started 
+
+Open RStudio and find and open the script *t_rdesc.R* in your script editor.Run the Settings section and the Data section.Once again, note that to run this script on your computer you will need to edit the `setwd(...)` command for your own working directory (folder). That is, change the part in quotations to your working directory folder (and not Sundstrom’s) in the following line of code:
+
+`setwd("/Users/wsundstrom/Dropbox/econ_42")`
+
+The Settings section, when run, will load the packages, run other settings.  The data section will import the data.  This script will load three datasets: the CA schools data, the WDI data, and the CPS earnings data.  To load the data, highlight and run all of the code through the Data section (to just before the Analysis section).  In the Workspace frame (upper right), you should see three data frames, caschool, earn and wdim.  These are the two data sets to be analyzed.
+
+Note that the function `cse(...)` is used to correct the standard errors (see later chapters).
+
+
+*** 
+
+### Descriptive statistics with caschool dataset
+
+A table of descriptive statistics usually includes the mean, standard deviation, median, etc. We can do this using stargazer, one of the packages that we loaded. Run the following line of code:
+
+`stargazer(caschool, type="text", median=TRUE, digits=2, title="CA school data set")` 
+     
+The option `median=TRUE` tells stargazer to calculate the medians, as well as the other stats, which are done automatically.
+
+In the console (lower left) you should see a table of numbers. Take a look, scroll through, and make sure you can confirm that the mean district test score is 654.16 and the median student-teacher ratio is 19.72.
+
+IMPORTANT: Note that some variables are not included in the table, such as county. Why not? The county variable is not numerical; it consists of the names of the counties. As noted above, what R has done here is make county into a “factor” variable. The mean of a factor variable would be meaningless!  No pun intended?
+
+The mean of smallclass is 0.57. What does this tell you?
+
+*Select specific variables:* We can obtain descriptive statistics separately for selected variables. You can do this by running the next command in the script (try it).
+
+*Select a subsample:* Often we will want to run our analysis on a subset of the observations that have some specific characteristic(s). The easiest way to do this in R is using the `subset(...)` function. Examine and then run the next line of code:
+
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+stargazer(subset(caschool, smallclass==1), 
+          type="text", digits=2, 
+          title="Schools with student-teacher ratio less than 20")
+
+```
+    
+The code replaces the name of the data set (caschool) with the following: `subset(caschool, smallclass==1)`. This uses only the observations that have the property smallclass equal to 1. The double == sign is used to indicate that you want only the observations where the condition is exactly true. Use the symbol "&" for “and” and the "|" for “or” for more complex subsetting, such as 
+
+`acs_new = subset(acs,female==0 & (race=="White" | race=="Hispanic"))`
+
+Based on this command, can you tell who will be included in the sample? If you were to run a command like this, note that here a new data frame called acs_new is created; you would see it in the Workspace environment window with fewer observations than the original data frame acs.
+
+For more information on subsetting, see the website `http://rprogramming.net/subset-data-in-r/`.
+
+*Frequency tables:* The table command will provide a count of the number of observations in each category of a factor variable, such as county. Run the table commands and see what happens.
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# frequency tables by county
+table(caschool$county)
+table(caschool$county, caschool$smallclass)
+
+```
+    
+*Crosstabs:* Probably the most common data analysis done in the social sciences is to compute means of variables for different groups. In R the doBy package is useful for this purpose; it has a function called summaryBy that produces crosstabs.
+
+`summaryBy(testscr ~ smallclass, data=caschool, FUN=c(mean, min, max), na.rm=TRUE)`
+
+The ~ sign (the tilde) indicates that the variable that follows is the categorical variable. `FUN=c()` indicates the various statistics to compute. `na.rm=TRUE` tells R to ignore missing values.
+
+*** 
+
+### Testing for difference in means
+
+Social scientists are always comparing average of variables for two (or more) groups.  Is this group different from that group?  Just looking at the two means is not enough.  If the sample size from which the means are calculated is very small, then the different in the means may just be the result of chance: one sample drew a few high values and the other sample for the other group a few low values.  
+
+Moreover, the variance of the observations in the samples for the two groups may be very high.  In order to determine whether the difference in means is statistically significant, social scientists calculate a t-statistic and examine the probability of observing a t-statistic of the value or higher.  The null hypothesis that there is no difference in the means between the two groups is rejected when the probability (p-value) of obtaining a t-statistic that one actually obtains is very low, if the null hypothesis were true.   
+
+R can calculate t-statistics and p-values in a snap.  Here is the command, for the caschool data, with the results.
+
+```{r, message=F, warning=F, comment=NA  }
+
+t.test(testscr~smallclass, data=caschool, FUN=c(mean), na.rm=TRUE)
+
+```
+
+The results are pretty clear: smaller classes have higher test scores.  The t-statistic is 4.04, with an associated p-value of .00006 which is tiny.   The small classes have average score of 657 and the larger classes have average test score of 650.
+
+*** 
+
+### Descriptive statistics with WDI dataset
+
+Let us turn to the WDI data.  The script has already loaded the dataset and transformed some of the variables.  You can use stargazer to get a table of descriptive statistics.
+
+`stargazer(wdim, type="text", median=TRUE, digits=2, title="WDI data set")`
+
+We could use the same command with a subset of the data to get a table of descriptive statistics for just one world region.
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+stargazer(subset(wdim, 
+          levels(wdim$region)==
+          "Middle East & North Africa (all income levels)"),
+          type="text", digits=2, title="WDI data for Middle East")
+
+```
+    
+Now use `summaryBy` to create a table of the average of *femaleperc*(Population, female (% of total)) for each region.
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# Table by region of % female
+summaryBy(femaleperc ~ region,  data=wdim , 
+         FUN=c(mean),na.rm=TRUE)
+
+```
+         
+This is a straight average of the percent female for each country in the region, and is not weighted by the population size of each country.You will see something like this (the output has been cleaned up a bit).
+
+region  | femaleperc.mean
+--------|------------------
+1. East Asia & Pacific 	|      	50.1
+2. Europe & Central Asia 	 |   	51.2
+3. Latin America & Caribbean  |	50.7
+4. Middle East & North Africa  | 45.8
+5. North America       |      	  50.6
+6. South Asia            |	    	49.2
+7. Sub-Saharan Africa 	  |    	50.2
+
+South Asia has almost two percentage points, and East Asia almost one percent, fewer females than Europe, North America or Latin America. Since the populations of both regions are larger than one billion persons, these one or two percentage point differences have been the basis for estimations that there are about 100 million “missing women” in those regions, arising increasingly from sex selective abortion as parents prefer to have sons rather than daughters.
+
+***
+
+### Descriptive statistics with CPS earnings data
+
+The script also has commands to read in the CPS earnings data used in stock and Watson’s Table 3.1.  
+
+`earn = read.csv("cps92_08.csv", header=TRUE, sep=",")`
+
+You can create a new variable that adjusts 1992 values to 2008 dollars using the CPI.
+
+`earn$realahe = ifelse(earn$year==2008, earn$ahe, earn$ahe*215.2/140.3)`
+
+Notice this uses an if...else command to carry out the transformation.Can you figure out what the line of code is doing?  
+You can then carry out some t-tests for differences in means.
+
+*** 
+
+### Summary
+
+___Key R commands (functions):___
+
+* `stargazer`: creates tables—in this case descriptive statistics (requires package stargazer)
+* `subset`: creates a subsample of a data set satisfying some condition(s)
+* `summaryBy`: calculates summary statistics for different groups (requires package doBy)
+* `t.test`: calculates t-statistic and p-value for difference in means
+
+
+___Key points/ concepts:___
+
+* Subsample of data: subset(dataset, condition)
+
+*** 
+

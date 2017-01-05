@@ -1,0 +1,272 @@
+---
+title: ''
+output:
+  html_document:
+    highlight: textmate
+    theme: readable
+---
+  
+```{r setup, echo=FALSE, message=F, warning=F  }
+
+### This chunk is used for every tutorial
+
+library(knitr)
+
+# Identify machine and set directory
+rootDir1 <- "/Users/wsundstrom"
+rootDir2 <- "/Users/Derran"
+subDir <- "/Google Drive/R_SCU_resources/files42/data"
+
+if (file.exists(rootDir1)){
+    rootDir = rootDir1
+} else {
+  if (file.exists(rootDir2)){
+    rootDir = rootDir2
+  }
+}
+
+mainDir = file.path(rootDir, subDir)
+
+# Root drectory for knitr
+opts_knit$set(root.dir = mainDir)
+
+# The following allows markdown to find LaTex
+Sys.setenv(PATH=paste(Sys.getenv("PATH"),"/usr/texbin",sep=":"))
+
+# Set working directory 
+setwd(mainDir)
+
+# Load the packages (must have been installed: see tutorial_2)
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(gdata)
+library(doBy)
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# set larger font size for qplot (default is 12)
+theme_set(theme_gray(base_size = 18))
+# function to calculate corrected SEs for regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+
+```
+
+```{r prelim, echo=FALSE, message=F, warning=F  }
+
+### This chunk is for any data and regression steps used throughout the tutorial
+
+### Read the CA school district data 
+
+# read the data from csv file
+caschool = read.csv("caschool.csv", header=TRUE, sep=",")
+reg1 = lm(testscr ~ str, data=caschool)
+
+```
+
+<base target="_top"/>
+
+_Guide to R for SCU Economics Students, v. 3.0_
+
+*** 
+
+## Regression analysis
+
+***
+
+#### In this tutorial you will learn how to:
+
+* Run a least-squares regression in R and interpret the results
+* Obtain heteroskedasticity-corrected standard errors and test statistics for regression coefficients
+* Assemble the estimates into a nice table of results
+* Retrieve and plot the regression residuals
+
+***
+
+#### Where to find what you need:
+
+* [Guide to R: Home](http://rpubs.com/wsundstrom/home)
+* [Downloads: R tutorial scripts and data files](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0)
+
+***
+
+### Introduction
+
+It is easy to run regressions in R. However, the standard R regression procedure has some limitations. Therefore, we use some packages that fix a couple of issues: (1) We want to correct the coefficient standard errors for heteroskedasticity. (2) We want our results presented in a table that makes it easy to compare alternative regression models.
+
+*** 
+
+### Run a simple regression
+
+Start RStudio and open the script t_regbasics.R in your script editor.
+
+Once again, note that to run this script on your computer you will need to edit the `setwd(...)` command for your own working directory (folder). That is, change the part in quotations to your working directory folder in the following line of code:
+
+`setwd("/Users/wsundstrom/Dropbox/econ_42")`
+
+Then load packages, run other settings, and import the data.  Highlight and run all of the code through the Data section (to just before the Analysis section). Examine the table of descriptive statistics to remind yourself what is in the data set.
+Note: The function`cse( )` is used to correct the standard errors (see below).
+
+Before we run the regression, let’s take another look at the scatter plot: Run the `qplot` command. Note again that the relationship between str and testscr appears to be weakly negative.
+
+Now highlight and run the following line: 
+
+`reg1 = lm(testscr ~ str, data=caschool)`
+
+Note the following:
+
+* `lm(...)` is the linear model (regression) function. The first variable is the Y variable, then any X variable(s) are included after the ~.
+
+* The X variable, here str, is the explanatory variable or the regressor.
+
+* We gave the regression output a name, `reg1`. In your workspace (upper right) under Values, you should now see reg1.
+
+* Notice `data=caschool` in the lm command. This allows us to just use the variable names in this function without including the data set name and $ sign.
+
+To see the actual results of the regression in your console, highlight and run the `summary(...)` command. In the future, we will not do this, but let’s take a look. Here is the relevant part of the regression output in your console:
+
+```{r, echo=F, message=F, warning=F, comment=NA }
+
+summary(reg1) 
+
+```
+
+Consult your textbook for interpretation of most of the numbers presented in the output. For now, note that the implied regression equation is:
+
+_testscr^ = 698.9330 – 2.2798 str_
+
+***
+
+### Create a table with corrected standard errors
+
+Economists usually present regression results in a different format. The regression tables in your Stock and Watson textbook (e.g., Table 7.1) are good examples. We can use the stargazer command to make perfect regression tables. In addition, we want to use the corrected standard errors for the coefficients. Let’s make the table and see what we get.
+
+Examine the next command, but don’t run it yet… 
+
+
+```{r, eval=F, message=F, warning=F}
+
+stargazer(reg1, 
+          se=list(cse(reg1)), 
+          title="CA school district regression", type="text", 
+          df=FALSE, digits=3)
+
+```
+
+
+How do I know that these four lines are all part of the same command to R? A: Everything within the set of parentheses following the command ```stargazer``` is part of the same command. 
+
+Within the parentheses, note the following:
+
+* ```reg1``` is the name of the regression(s)
+* ```se=...``` is how we tell R to use the corrected standard errors. If you omitted this option, stargazer would just use the uncorrected SEs. See below for more on this.
+* ```title=...``` gives the table a title (put title in quotes)
+* ```type="text"``` means the table will be printed as text (always use this)
+* ```df=FALSE``` means the table will not be cluttered with degree of freedom numbers
+* ```digits=3``` rounds the numbers in the table to three digits after the decimal (you can change this, of course)
+    
+Now highlight and run the stargazer command (all four lines of it... make sure you include all parentheses!). Recall that if you just run part of a command, and it includes an open parenthesis, then R will be waiting for the close parenthesis, and will not give any output.  See the earlier chapter for how to resolve this problem. 
+
+```{r, echo=F, message=F, warning=F, comment=NA }
+
+stargazer(reg1, 
+          se=list(cse(reg1)), 
+          title="CA school district regression", type="text", 
+          df=FALSE, digits=3)
+
+```
+
+Examine the table in the console in the console.
+
+* The slope and intercept coefficient estimates, with standard errors in parentheses, are in the top panel. The coefficient called “Constant” is the estimate of the Y intercept.
+    + Compare these results with the table of regression results we obtained without the robustness correction (above). Note that the point estimates are exactly the same (e.g., the slope is -2.280), whereas the standard errors are different (for the slope, 0.4798 vs. 0.519). This is due to the correction for heteroskedasticity.
+    + The significance codes (asterisks) are for the null hypothesis that the coefficient is zero. *** means the p-value is between 0 and 0.001, so the null can be rejected at the 0.001 = 0.1% level.
+* Observations is N = 420.
+* R-squared and adjusted R-squared (to be discussed in class)
+* “Residual Std. Error” is also known as the standard error of the regression.
+* The F Statistic is for a test of the null hypothesis that all the slope coefficients are zero. We will discuss this later in the course.
+
+___A note on the correction of standard errors for heteroskedasticity:___
+
+In many statistical packages (including R), the default regression function calculates coefficient standard errors that are only valid if the error term is homoskedastic—that is, the variance of the error (unexplained part) is the same for all observations. As you learn in chapter 5 of your textbook, there is no reason to think this would be true, and if it is not, the standard errors are incorrect, and so are the resulting hypothesis tests.
+
+To fix this, I have added a correction that recalculates the standard errors: this is the function `cse(…)` just before the data section. Stargazer uses this to correct the SEs. The correction seldom makes a large difference, but it is technically correct, and will make all your results completely comparable with the Stock and Watson textbook when we replicate some of their results. Hence: We will always use a correction of the standard errors.
+
+
+***
+
+#### Retrieve and plot the regression residuals
+
+The regression residuals are the difference between the actual value of the dependent variable (Y) and the predicted value from the regression, for each observation. We will discuss in class how the residuals can provide a useful diagnostic.
+
+Highlight and run the following commands:
+
+```{r, eval=F, message=F, warning=F}
+
+caschool$resid1 = resid(reg1)
+qplot(str, resid1, data=caschool, main = "Residual against STR",
+     ylab = "Regression residual",xlab = "Student-teacher ratio")
+
+```
+
+Do you see any pattern in the plot?
+
+*** 
+
+#### A table with more than one regression
+
+Run the last lines of code and see how the second regression and third regression can be displayed as new columns in the stargazer table. Make sure you can write out the formula for the estimated regression equations for reg2 and reg3 and explain what they mean.
+
+***
+
+### Run a regression using the WDI data
+
+Let us run a regression using the World Bank’s Development Indicators database to see if there is a relationship between the income (measured as per capita real GDP) of a country and the percent of females in the country.  We might imagine that poorer countries have more “missing women.”
+
+Run the regression and display the results using stargazer.  GDPpcUSDreal is the only regressor in this equation. 
+
+```{r, eval=F, message=F, warning=F}
+
+regwdi1 = lm(femaleperc ~ GDPpcUSDreal, data= wdim)
+
+stargazer(regwdim1, 
+    se=list(cse(reg1)), 
+    title="Regression of GDP and percent female", 
+    type="text", 
+    df=FALSE, digits=5)
+
+```
+
+Take some time to examine the output of the regression. The variable measuring GDP per capita has an estimated coefficient of -.00006 and has one asterisk, indicating statistical significance at the ten percent level. To interpret the magnitude of the relationship, look at the underlying data. 
+
+Under Data in the Workspace frame (upper right), click on the data name, wdim. This should open the data set in what looks like a spreadsheet in the script editor frame.  The GDP variable is in dollars, while the percent female variable is in percentages (and not in decimals).  So the regression coefficient means that a one dollar increase in GDP per capita is associated with a decrease in the percent female of .00006.  Alternatively, an increase in GDP of ten thousand dollars per capita reduces the percent female by more than half a percentage point.  That seems pretty substantial.  Of course, we need to reflect on whether this coefficient might be biased. (Obviously it is!)
+
+An important observation to make here is that just because the slope coefficient here seems to be a “small” number does not necessarily mean the effect is small—in this case it means that the scale of X (per capita GDP) is large. We could make the regression table easier to interpret by rescaling the X variable to be in thousands of dollars. Without re-running the regression, can you tell what the slope coefficient would be in that case?
+
+
+***
+
+### Summary
+
+___Key R commands (functions):___
+
+* ```lm```:  runs regressions
+* ```cse```:  function you load at beginning of script to generate corrected standard errors (requires package sandwich)
+* ```stargazer```:  creates nice tables of regression results and allows you to include corrected standard errors (requires package stargazer)
+* ```resid```:  obtains the regression residuals
+
+___Key points/ concepts:___
+
+* The basic format for running a simple regression is lm(Y ~ X) .
+* ALWAYS report the heteroskedasticity-robust standard errors.
+
+*** 
+

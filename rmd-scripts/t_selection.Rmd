@@ -1,0 +1,242 @@
+---
+title: ''
+output:
+  html_document:
+    highlight: textmate
+    theme: readable
+---
+
+```{r setup, echo=FALSE, message=F, warning=F  }
+
+### This chunk is used for every tutorial
+
+library(knitr)
+
+# Identify machine and set directory
+rootDir1 <- "/Users/wsundstrom"
+rootDir2 <- "/Users/Derran"
+subDir <- "/Google Drive/R_SCU_resources/files42/data"
+
+if (file.exists(rootDir1)){
+    rootDir = rootDir1
+} else {
+  if (file.exists(rootDir2)){
+    rootDir = rootDir2
+  }
+}
+
+mainDir = file.path(rootDir, subDir)
+
+# Root drectory for knitr
+opts_knit$set(root.dir = mainDir)
+
+# The following allows markdown to find LaTex
+Sys.setenv(PATH=paste(Sys.getenv("PATH"),"/usr/texbin",sep=":"))
+
+# Set working directory 
+setwd(mainDir)
+
+# install.packages(c("plm", "ivpack","sampleSelection"))
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(gdata)
+library(doBy)
+library(plm)
+library(ivpack)
+library(sampleSelection)
+
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# set larger font size for qplot (default is 12)
+theme_set(theme_gray(base_size = 18))
+
+### functions for correct SEs in regression tables
+
+# function to calculate corrected SEs for OLS regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+
+# clustered SEs, clustered on "group"... can also cluster on "time" 
+# adjust = T is a df adjustment N/(N-k)
+clse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, method="arellano", type = "HC1", 
+                         cluster = "group", adjust = T)))
+  return(rob)
+}
+
+# corrected SEs for IV regressions
+ivse = function(reg) {
+  rob = robust.se(reg)[,2]
+  return(rob)
+}
+
+```
+
+```{r prelim, echo=FALSE, message=F, warning=F  }
+
+### This chunk is for any data and regression steps used throughout the tutorial
+
+# data from sampleSelection package
+data( Mroz87 )
+
+# dummy variable for kids
+Mroz87$kids = ( Mroz87$kids5 + Mroz87$kids618 > 0 )
+
+# OLS: log wage regression on LF participants only
+ols1 = lm(log(wage) ~ educ + exper + I( exper^2 ) + city, data=subset(Mroz87, lfp==1))
+
+# Two-step estimation with LFP selection equation
+heck1 = heckit( lfp ~ age + I( age^2 ) + kids + huswage + educ,
+                 log(wage) ~ educ + exper + I( exper^2 ) + city, data=Mroz87 )
+
+# ML estimation of selection model
+ml1 = selection( lfp ~ age + I( age^2 ) + kids + huswage + educ,
+                    log(wage) ~ educ + exper + I( exper^2 ) + city, data=Mroz87 ) 
+  
+```
+
+<base target="_top"/>
+  
+_Guide to R for SCU Economics Students, v. 3.0_
+
+*** 
+  
+## Models with sample selection
+  
+***
+  
+#### In this tutorial you will learn how to:
+  
+* Estimate regression models with corrections for sample selection
+
+*** 
+
+#### Where to find what you need:
+
+* [Guide to R: Home](http://rpubs.com/wsundstrom/home)
+* [Downloads: R tutorial scripts and data files](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0)
+
+***
+  
+### Introduction 
+  
+Sample-selection bias in OLS regressions arises when the process whereby observations are selected into the sample depends on the dependent (Y) variable in a way that creates a correlation between the error term and the regressors. A classic example, which we explore here, is the estimation of a wage or earnings equation where the wage is a function of observable skills (say, education), when the decision to work for pay depends on the expected pay itself. 
+
+To illustrate, let's consider an admittedly oversimplified scenario, in which people only choose to work for pay if their expected wage would exceed some constant threshold value. Otherwise, work is not worth it to them, and they fall back on other resources (spouse, parents, etc.). Then the sample of workers in the labor force, for whom we observe earnings, is selected from those in the population who are paid above that threshold. Among highly educated workers, most would earn above the threshold regardless, so they are pretty well-represented in the sample. But among the less-educated, usually low-paid workers, the sample is more selective and non-random: only those with unusually high earnings given their low levels of education clear the threshold and are observed in the sample of paid workers. In this scenario, education would be negatively correlated with the error term, which biases the OLS coefficient on education downward.
+
+Note that non-random sampling does not _necessarily_ create biased estimates, as it did in our scenario. Selection on the X variables need not cause bias. For example, suppose we had a sample consisting of a randomly chosen 2% of all women and a random 1% of all men. The sample is non-random, because selection depends on X = gender. But a comparison of men's and women's wages based on these samples would be unbiased: the selection is not causing a correlation between X (gender) and the error term of earnings.
+
+Still, there are lots of reasons that a sample might be non-random in a way that could cause selection bias. For survey data, we know that response rates are low, and the kind of person who responds to a survey may be different from the kind who doesn't in ways that are correlated with outcome variables, on average. In other cases (such as our wage example), we only observe the dependent variable for people who make a certain decision related to that variable, such as whether to work for pay, or buy a particular product, or migrate. 
+
+Sometimes it is possible to estimate a model that corrects for the sample-selection bias that would be present in OLS. Essentially, what we need is a model of the selection process. Then once we estimate the determinants of selection, we can use that to correct for the bias in the regression. Our focus in this tutorial is on the mechanics of how to estimate this kind of model in R, which is straightforward. Understanding the theory behind the procedures and how to interpret the results is discussed in the textbook.
+
+***
+
+### Getting started
+
+To get started, start RStudio and open the script **t_selection.R** in your script editor. Edit the `setwd(…)` command for your working directory. Check the list of packages in the `library` commands and make sure you have installed all of them. Then run the script from the top through the data section. 
+
+The data set _Mroz87_ is 1975 data on married women's pay and labor-force participation, from a well-known 1987 article by Thomas Mroz. Mroz took his data from the Panel Study of Income Dynamics (PSID), an important national research survey. The data set is available as part of the `sampleSelection` package, which you should have installed and loaded. To see what variables are in the data, you can search RStudio Help for _Mroz87_.
+
+We will estimate a log wage equation for married women, in which the natural log of wages is a function of education, experience, experience squared, and a dummy variable for living in a big city. The issue here is that we can only observe the wage for women who are working for a wage. A substantial proportion of married women in 1975 were out of the labor force, so an OLS estimate of the wage equation would be estimated using a sample subject to considerable sample selection, potentially resulting in bias of the nature discussed above.
+
+Because we have observations in the data set on non-participants (not working for pay), we can implement models that correct for the selection process. Note also that we have created a new variable that is a dummy for the woman having children under 18. In effect, we will use this as an instrument for labor-force participation.
+
+***
+
+### Sample selection procedures: two-step and maximum likelihood
+
+We are going to run three regressions to estimate the log wage equation, and compare the results. The first is simply OLS, using the sample of labor-force participants, for whom we can observe the wage. Here is the code, which should look quite familiar. Make sure you understand every bit:
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# OLS: log wage regression on LF participants only
+ols1 = lm(log(wage) ~ educ + exper + I( exper^2 ) + city, data=subset(Mroz87, lfp==1))
+
+```
+
+Now let's turn to two alternative methods for estimating the wage equation with selection. The first is the so-called `heckit` or Heckman two-step correction model, named for the Nobel-prize winning economist, James Heckman. Heckman's idea was to treat the selection problem as if it were an omitted variable problem. A first-stage probit equation estimates the selection process (who is in the labor force?), and the results from that equation are used to construct a variable that captures the selection effect in the wage equation. This correction variable is called the inverse Mills ratio. 
+
+Let's look at the code:
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# Two-step estimation with LFP selection equation
+heck1 = heckit( lfp ~ age + I( age^2 ) + kids + huswage + educ,
+                 log(wage) ~ educ + exper + I( exper^2 ) + city, data=Mroz87 )
+
+```
+
+The set-up is in the spirit of the standard `lm`, but in this case note that we have two equations, separated by a comma. 
+
+* The first equation in the command is the selection process, which is estimated as a probit: `lfp ~ age + I( age^2 ) + faminc + kids + huswage + educ`. The dependent variable is always the binary variable for being selected into the sample-- in this case, it is _lfp_, which is a dummy variable equal to one if the woman is participating in the labor force (and is thus being paid and observed for the wage equation). Then there is a comma, followed by:
+
+* The second equation, which is the wage regression of interest: `log(wage) ~ exper + I( exper^2 ) + educ + city`.
+
+The selection equation should include as regressors variables that are likely to affect the selection process. In our example we want variables that could plausibly affect whether or not a married woman would be in the labor force. Examine the variables included here, make sure you know what they are, and see if you can understand why they would be included in the _lfp_ equation. 
+
+In principle, the selection equation and the wage equation could have exactly the same set of regressors. But this is usually not a good idea. To get a good estimate of the selection model, _it is very desirable to have at least one variable in the selection equation that acts like an instrument_: that is, a variable that one expects would affect the selection process, but not the wage process, except through selection. In this example, the _kids_ variable might play such a role, if we can assume that women with kids may be more likely to be stay-at-home moms, but for working moms having kids would not affect their hourly pay rate.
+
+An alternative statistical method to accomplish the same result as the Heckman model is to estimate the selection model using maximum likelihood (ML) for both equations simultaneously. We will discuss this further in class. For now, note that the syntax for the command is virtually identical to the heckit:
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# ML estimation of selection model
+ml1 = selection( lfp ~ age + I( age^2 ) + kids + huswage + educ,
+                    log(wage) ~ educ + exper + I( exper^2 ) + city, data=Mroz87 ) 
+
+```
+
+In the tutorial I note that the `selection` command can be used to estimate the Heckman model as well by adding the option `method="2step"` to the preceding command.
+
+Let's run the `stargazer` command to see the output from OLS and the two alternative selection models:
+
+```{r, message=F, warning=F, comment=NA }
+
+# stargazer table
+stargazer(ols1, heck1, ml1,    
+          se=list(cse(ols1),NULL,NULL), 
+          title="Married women's wage regressions", type="text", 
+          df=FALSE, digits=4)
+
+```
+
+*** 
+
+As you can see, the selection corrections did not have a big effect on any of the parameters of interest. The estimated returns to education and experience are a bit larger in the selection regressions, but the difference is really small. In this case it appears that the OLS equation on the selected sample may not have been very biased after all.
+
+In the panel below the coefficients, note that there is an estimate for _rho_ in the selection models: columns (2) and (3). This is an estimate of the correlation of the errors between the selection and wage equations. In the lower panel, the estimated coefficient on the inverse Mills ratio is given for the Heckman model. The fact that it is _not_ statistically different from zero is consistent with the idea that selection bias was not a serious problem in this case.
+
+The final `stargazer` table in the script includes the option `selection.equation=TRUE`, which means the table will show you the first-stage probit model for _lfp_, if you are interested in what factors affect the selection process itself.
+
+***
+
+**Reference:**
+
+Mroz, T. A. (1987) "The sensitivity of an empirical model of married women's hours of work to economic and statistical assumptions." _Econometrica_ 55, 765–799.
+
+***
+
+### Summary
+
+___Key R commands (functions):___
+
+* `heckit`: runs Heckman two-step selection model (requires package `sampleSelection`)
+* `selection`: runs maximimum likelihood (ML) selection model (requires package `sampleSelection`)
+
+___Key points/ concepts:___
+
+* `heckit` and `selection` work a lot like `lm`, but have two equations.
+* The syntax for either is as follows: `selection(S ~ W1 + W2 | Y ~ X1 + X2 ..., ... )`, where the first equation is the selection equation, and S is a dummy variable for selection into the sample.
+* `stargazer` can be used to obtain the second-stage estimates or modified to examine the selection equation.
+
+*** 

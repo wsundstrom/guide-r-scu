@@ -1,0 +1,328 @@
+---
+title: ''
+output:
+  html_document:
+    highlight: textmate
+    theme: readable
+---
+  
+```{r setup, echo=FALSE, message=F, warning=F  }
+
+### This chunk is used for every tutorial
+
+library(knitr)
+
+# Identify machine and set directory
+rootDir1 <- "/Users/wsundstrom"
+rootDir2 <- "/Users/Derran"
+subDir <- "/Google Drive/R_SCU_resources/files42/data"
+
+if (file.exists(rootDir1)){
+    rootDir = rootDir1
+} else {
+  if (file.exists(rootDir2)){
+    rootDir = rootDir2
+  }
+}
+
+mainDir = file.path(rootDir, subDir)
+
+# Root drectory for knitr
+opts_knit$set(root.dir = mainDir)
+
+# The following allows markdown to find LaTex
+Sys.setenv(PATH=paste(Sys.getenv("PATH"),"/usr/texbin",sep=":"))
+
+# Set working directory 
+setwd(mainDir)
+
+# Load the packages (must have been installed)
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(WDI)
+library(gdata)
+library(doBy)
+library(XML)
+library(countrycode)
+library(erer)
+library(plyr)
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# set larger font size for qplot (default is 12)
+theme_set(theme_gray(base_size = 18))
+# function to calculate corrected SEs for regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+
+```
+
+```{r prelim, echo=FALSE, message=F, warning=F  }
+
+### This chunk is for any data and regression steps used throughout the tutorial
+
+### Read the data sets
+
+# WDI data: the variable names are explained in WDI_2009_description.docx
+wdi = read.csv("wdi_data.csv", header=TRUE, sep=",")
+wdi_school = read.csv("wdi_school_data.csv", header=TRUE, sep=",")
+
+```
+
+<base target="_top"/>
+
+_Guide to R for SCU Economics Students, v. 3.0_
+
+*** 
+
+## Merging two data sets
+
+***
+
+#### In this tutorial you will learn how to:
+
+* Merge data sets by matching observations
+* Be aware of missing values
+
+***
+
+
+#### Where to find what you need:
+
+* [Guide to R: Home](http://rpubs.com/wsundstrom/home)
+* [Downloads: R tutorial scripts and data files](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0)
+
+***
+
+### Introduction 
+
+Although the emphasis of this course is on how to analyze data once you have it, a big challenge in data science is obtaining, managing, and manipulating data before you even start analyzing it. This tutorial covers one of the most important, and dangerous, data operations: merging two datasets.
+
+Very often we draw data from multiple sources and then want to merge the different data sets by matching on a particular variable or variables. For example, you might have company sales data by zip code and want to match it to census or other data also arranged by zip code. The idea is to create a new data set that has variables from both data sets. 
+
+In order to practice the merge command, we merge the WDI data with another dataset from the Internet. We will use country-level data, and often we might want to merge country data from a variety of sources.
+
+### Getting started 
+
+Start RStudio and open the script *t_merge.R* in your script editor. Make sure to change the ```setwd(…)``` command, as usual.  Run the commands in the Settings section, and also run the first part of the Data section that loads the now-familiar WDI dataset obtained from the World Bank server.   
+
+The second data set is coming from a csv file available on the Internet, through the Correlates of War project from the University of Maryland. (If you are a political science major, you should definitely explore the website for this project!) We will use these data to have a measure of the percent of the population of each country of the world belonging to one of the major world religions (Islam, Buddhism, Hinduism, Catholicism and Protestantism). Use the following code that is in the script.
+
+```{r, eval=F, message=F, warning=F}
+
+religion = read.csv("http://www.correlatesofwar.org/data-sets/world-religion-data/wrp-national-data-1/at_download/file", 
+        header=TRUE, sep=",", strip.white=TRUE, 
+        stringsAsFactors=FALSE)
+
+```
+
+The first line of code defines a new dataframe called religion, and reads in the data from the web server. (The web address changes from time to time, so you might have to explore the website a bit to find the exact address if the one above does not work.)  
+
+```{r, eval=F, message=F, warning=F}
+
+religion = subset(religion,
+          religion$year=="2010" )
+religion = subset(religion, select = 
+          c(islmgenpct,budgenpct, hindgenpct, 
+          chrstcatpct, chrstprotpct, name ) )
+
+```
+
+The second command limits the dataframe religion to a subset of the first dataframe that just includes observations for the year 2010. The third command further subsets the dataframe to just include the percentages of the population from each of the world’s major religions.
+
+The following command uses a package that you need to have installed and loaded with the library command (also in the script) called countrycode.  The associated command will take the name of each country and create a new variable that is the ISO standard three letter abbreviation for the country. The WDI data has these same ISO codes for each country, so the merge will be exact.
+
+```{r, eval=F, message=F, warning=F}
+
+# convert country code in religion (correlates 
+# of war - cow) to World Bank code iso3c
+# using install.packages("countrycode")
+religion$iso3c=countrycode(religion$name, 
+"cowc", "iso3c")
+# rename to be country
+religion <- rename(religion,c('name'='country'))
+
+```
+
+The last line simply renames the variable for country; in the original dataset it is “name” so the code renames the variable to be “country.” Makes sense, right?
+
+***
+
+### Merging the two files
+
+Now the merge command is given as follows (there are two options):
+
+```{r, eval=F, message=F, warning=F}
+
+# If we want to keep only the countries that have # observations from BOTH data sets:
+
+common = merge(religion, wdim, by="iso3c")
+
+# If we want to keep all the data from both 
+# data sets:
+
+combine = merge(religion, wdim, by="iso3c", 
+           all.x = TRUE, all.y = TRUE)
+
+```
+
+Run the merge commands to create new merged data sets, and the descriptive statistics.  
+
+* The data set _common_ includes only those countries that are present in BOTH original data sets.
+
+* The data set _combine_ includes all the observations from both original data sets. If a country is in, say, wdim, but not in religion, it will be included in combine, but all the religion variables will take the value NA, since they are not available for that country.
+
+In most applications, you would want all the observations—that is, the combined data set. You can always choose to exclude from analysis observations that are missing some of the variables.
+
+Following the merge are commands to run regressions using the combined data.  Try to interpret the output, but bear in mind that we might not want to interpret the coefficients as causal.  So when interpreting the regression, it is best to use the language of association or correlation.
+
+***
+
+### Missing values
+
+You have to be careful about missing values. Some R procedures will not run if there are missing values; others will drop observations with missing values, as stargazer did here.
+
+Data with missing values for some variables need to be treated with caution!
+
+When running a regression, R’s default is to run the regression using only those observations for which all variables in the regression are non-missing: the dependent variable and all regressors.
+
+Run the regressions that follow the merge commands, which use the combined data set. Note that N = 180 for the first regression. That is, 180 countries have non-missing values of all the variables in this regression.N = 180 is less than the 217 countries in the combined data. This could be alright if the countries with complete data are representative of all countries. But if the sample of countries with complete data differs systematically from the full sample, there might be some sample selection bias!
+
+If you dropped or added other regressors, this would likely change the sample of countries again. Regressions 2 and 3 have 175 observations. When there are missing values, we must be very careful about comparing alternative specifications, because they may affect the sample.
+
+***
+
+### Summary
+
+___Key R commands (functions):___
+
+* ```merge```:  merge two data sets by matching on one or more common variables
+
+___Key points/ concepts:___
+
+*	Merging data is very useful, but must be treated with caution.
+* Missing values can create challenges in statistical analysis, because of sample selection bias and difficulties of comparability across specifications.
+
+*** 
+
+### Extra: web scraping and merging
+
+One of the tasks that R is very good at is scraping website for html coded tables, and loading them into R for use in data analysis. The script *t_merge_extra.R* contains some code that might pique your interest. It is more opaque than the fairly transparent code we have been using so far.
+
+The first line of code in the Data section defines an empty list, sal, that will be filled up as we loop through the scraping of a website table. The website is the Transparent California site, that has a section that posts the salaries of every public employee in Santa Clara County.  
+
+```{r, eval=F, message=F, warning=F}
+
+sal <- list()
+for (i in 2:50) {
+url = paste0("http://transparentcalifornia.com/salaries/santa-clara-county/", "?page=", i)
+tt <- readHTMLTable(url)
+n.rows <- unlist(lapply(tt, function(t) dim(t)[1]))
+sal[[i]] <- ldply(tt, data.frame)
+ }
+
+```
+
+The `for (i in 2:50)` part of the next line in the code tells R to loop through the numbers 2 to 50, and do what is after the open brace { until arriving at the close brace } and then loop again with the next number.  Inside the braces are the following commands. First, an object url is defined as the address of the website where the table is displayed (different for each page number, indexed by i).Then the command readHTMLTable looks on the Web and reads the html formatted table on that webpage. The next two lines structure the html table as an R data set. 
+
+After the brace, the command
+
+`sccountysal <- rbind.fill(sal)` 
+
+joins the newly created data sets together into one big dataset. The following line removes the working objects that are no longer needed.
+
+```{r, eval=F, message=F, warning=F}
+
+# remove some data sets from your workspace
+rm(list = c("tt", "sal", "i", "n.rows", "url"))
+
+```
+
+Then there are some commands to clean up the strings that are in each cell and turn them into numbers (the as.numeric command):
+
+```{r, eval=F, message=F, warning=F}
+
+sccountysal$totalpay = str_replace
+(sccountysal$Total.pay..benefits,"[$]", "")
+sccountysal$totalpay1 = 
+str_replace(sccountysal$totalpay,"[,]","")
+sccountysal$totalpay2 =
+ as.numeric(sccountysal$totalpay1)
+sccountysal$name = as.character(sccountysal$Name)
+sccountysal$namelc = tolower(sccountysal$name)
+
+sccountysal$firstname <- sapply(strsplit(sccountysal$namelc, " "), '[', 1)
+sccountysal$lastname <- sapply(strsplit(sccountysal$namelc, " "), '[', 2)
+
+```
+
+After the cleanup, we are ready for the merge. We first load in a dataset of names and genders for children born in California. The list is far from complete, and only includes the several hundred most common male and female names.  
+
+```{r, eval=F, message=F, warning=F}
+
+names = read.csv("names california.csv")
+head(names)
+names$name = as.character(names$name)
+names$firstname =tolower(names$name)
+
+```
+
+We use a different merge command here. This is the `join` command, which comes with the plyr package. There are four options for the join command:
+
+* `inner`: only rows with matching keys in both x and y
+* `left`: all rows in x, adding matching columns from y
+* `right`: all rows in y, adding matching columns from x
+* `full`: all rows in x with matching columns in y, then the rows of y that don't match x.
+
+```{r, eval=F, message=F, warning=F}
+
+# merge the datasets using join in library(plyr)
+# set type='left' here so that get all of the
+# first data frame, 
+# but only the relevant rows from the names dataset.
+sccsal = join(sccountysal, names, by='firstname', type='left', match='all')
+
+# Create a factor var for female, for box plot
+sccsal $femalefac=as.factor(sccsal $female)
+
+table(sccsal$femalefac, useNA="ifany")
+
+```
+
+We can see that only 2/3 of the observations match to a gender. There remain about 1/3 of the salary database names that do not match. We need a better names database, right?
+
+We can however proceed and draw a boxplot of the distribution of salaries by gender. The first plot is not so nice, so the second block of code uses ggplot.
+
+```{r, eval=F, message=F, warning=F}
+
+# Boxplots - a straightforward way to do it...
+# but note outliers are a problem
+qplot(femalefac, totalpay2,  geom=c("boxplot"), data=sccsal,
+      main="Total pay according to gender", xlab="Female?", ylab="Annual pay")
+
+# A way to change scale of y-axis and drop
+# outliers
+p0 = ggplot(aes(y = totalpay2, x = femalefac), data = sccsal) + geom_boxplot(outlier.size=NA)+ 
+  labs(title="Total pay according to gender", x="Female?", y="Total pay, outliers excluded")
+# compute lower and upper whiskers
+ylim1 = boxplot.stats(sccsal$totalpay2)$stats[c(1, 5)]
+# scale y limits based on ylim1
+p1 = p0 + coord_cartesian(ylim = ylim1*1.05)
+p1
+
+```
+
+The box plots created are only for the top 2500 salary earners in the country. You can redo the analysis by looping from 2 to 500, thus obtaining 25,000 records.  But this is very time-consuming (might take 15-30 minutes depending on your connection speed). Alternatively, the Transparent California website lets you download the entire file as a csv file, which you can then import.
+
+Just for fun, we can also run a regression.  What does it tell us?
+
+***
+

@@ -1,0 +1,289 @@
+---
+title: ''
+output:
+  html_document:
+    highlight: textmate
+    theme: readable
+---
+  
+```{r setup, echo=FALSE, message=F, warning=F  }
+
+### This chunk is used for every tutorial
+
+library(knitr)
+
+# Identify machine and set directory
+rootDir1 <- "/Users/wsundstrom"
+rootDir2 <- "/Users/Derran"
+subDir <- "/Google Drive/R_SCU_resources/files42/data"
+
+if (file.exists(rootDir1)){
+    rootDir = rootDir1
+} else {
+  if (file.exists(rootDir2)){
+    rootDir = rootDir2
+  }
+}
+
+mainDir = file.path(rootDir, subDir)
+
+# Root drectory for knitr
+opts_knit$set(root.dir = mainDir)
+
+# The following allows markdown to find LaTex
+Sys.setenv(PATH=paste(Sys.getenv("PATH"),"/usr/texbin",sep=":"))
+
+# Set working directory 
+setwd(mainDir)
+
+# Load the packages (must have been installed)
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(gdata)
+library(doBy)
+library(plm)
+library(ivpack)
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# set larger font size for qplot (default is 12)
+theme_set(theme_gray(base_size = 18))
+# function to calculate corrected SEs for regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+
+```
+
+```{r prelim, echo=FALSE, message=F, warning=F  }
+
+### This chunk is for any data and regression steps used throughout the tutorial
+
+### Read the CA school district data 
+
+# read the data from csv file
+caschool = read.csv("caschool.csv", header=TRUE, sep=",")
+
+```
+
+<base target="_top"/>
+
+_Guide to R for SCU Economics Students, v. 3.0_
+
+*** 
+
+## Getting started
+
+***
+
+#### In this tutorial you will learn how to:
+
+* Know what computer hardware you need
+* Install R and RStudio
+* Create a working directory (folder) on your computer
+* Download the tutorial scripts and data sets to your working directory
+* Get to know the RStudio interface
+* Write and run a simple R script 
+
+***
+
+#### Where to find what you need:
+
+* [Guide to R: Home](http://rpubs.com/wsundstrom/home)
+* [Downloads: R tutorial scripts and data files](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0)
+
+***
+
+### What hardware do you need?
+
+__Any standard personal computer__ will work fine for running R, Mac or Windows.  You can often buy a new laptop for less than $300, and an adequate used laptop for less than the cost of a textbook. Some tablet computers (such as the Surface) may be compatible with R Studio. The Ipad cannot be used with RStudio at the time of this writing, but RStudio has an online version that may soon be convenient.
+
+We recommend that you also purchase an inexpensive external “mouse” for your laptop. You will do a lot of highlighting of sections of code, which is much easier with a mouse than with a finger and touchpad. Investing a few dollars in a mouse will repay itself many times over in saved frustration.
+
+
+*** 
+
+### Install R
+
+To get started, you need to download and install two different free software packages: R and RStudio. You will actually be interacting with RStudio, even though R does all the number crunching. Links to the web sites for downloads are provided here and on the ECON 41/42 course page on Camino (Canvas).
+
+R is maintained by CRAN, the Comprehensive R Archive Network. CRAN is a collection of sites that carry identical material, including downloads of R, extensions, documentation, and other R related files. R is available for many platforms, and below are download instructions for Mac and Windows.
+
+__YOU SHOULD INSTALL R FIRST BEFORE R STUDIO. SO DO THE FOLLOWING FIRST!__
+
+To download R, visit the [CRAN](http://cran.r-project.org/) website (you can also link from Camino). 
+
+Click on the Download link corresponding to the operating system that you will be using to run R—for most of you, that’s Mac OS X or Windows.
+
+You may at some point be asked to choose a CRAN “Mirror” from a long list. A mirror is a server that maintains everything R related. It does not matter which one you pick.
+
+Follow the instructions on the next screen:
+
+__MAC users:__ Figure out which version of the Mac operating system (OS X) you are running, and click on the appropriate version of R. For most of you, it will either be Snow Leopard or Mavericks. After the install package has been downloaded, find it (probably in your Downloads folder) and double click. Let Installer walk you through installation. No customization is necessary.
+
+__Windows users:__ Click the link that says “install R for the first time”. On the next screen, click the link to download R for Windows. After downloading the install package, which probably can be found in your Downloads folder, double click it and follow the installer’s instructions. Typically nothing needs to be done other than clicking either ‘next’ or ‘I Agree’ every time, accepting the default settings. 
+
+__Mac and Windows users:__ Now that you have installed R, you could access and run it by clicking on the icon that should now be on your desktop or among your programs. But as mentioned above, we will be interacting with R through the RStudio interface, so let’s install that now.
+
+*** 
+
+### Install RStudio
+
+Now that you have R installed on your machine, let’s download and install RStudio, which provides a more user-friendly interface and script editor for working with R. Downloading is similar for Mac and Windows.
+
+Visit [RStudio](http://www.rstudio.com/).
+
+Click Download RStudio. Then click on the Desktop version and then under “Open Source Edition”, click the box that says DOWNLOAD RSTUDIO DESKTOP. On the next screen, under the heading “Installers for Supported Platforms” you should be able to find the link for your system, either Windows of Mac. Click on that link and download the installer. After the download, go into your Downloads folder and double click on the downloaded package to install.
+
+If you have an older Mac (running OS X 10.5), you may need to install a different version of RStudio. Seek help!
+
+*** 
+
+### Create a working directory (folder) 
+
+You will need to have all your scripts and data in a single working directory (folder). You should create this new folder in whatever folder you use for course work. For example, a folder name might be _Courses/econ42_.
+
+Once you create the working directory, you will need to know its full “path” name. For example, in Windows the name might be:
+
+```C:\Users\mkevane\Documents\Courses\econ42```
+
+on a Mac it might be:  
+
+```/Users/mkevane/Documents/Courses/econ42```
+
+You can find the full path using Finder on a Mac or Explorer in Windows.  Note that the Mac uses forward slashes and Windows uses backwards slashes.  In a programming quirk, R only recognizes forward slashes, so that in your R code, the working directory for a Windows machine will be written as, for example:
+
+```C:/Users/mkevane/Documents/Courses/econ42```
+
+*** 
+
+### Download scripts and data 
+
+Most of the files you need are in a compressed (zip) file in the course web site on Camino, or from [this site](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0). By downloading from the Camino site, you will be sure to have the latest versions for your class.
+
+In Camino, go to the Downloads page and click on the file name _files42.zip_. Save this file to your computer. Then unzip the files. In some cases your computer may unzip the files automatically when you download them. In that case you will have a new folder, probably called _files42_, containing all the data and scripts. If your computer did not unzip the file, you should double click on _files42.zip_ to unzip and create the folder with the files. If you have never unzipped a file before, you may need to install a free program such as WinZip.
+
+After you have the “unzipped” folder with all the script and data files in it (probably called _files42_), move all the files into your working directory (which you created in step 3 above), not their own folder. 
+
+The R scripts all have names like _t2_rbasics.R_.
+
+The data files are all “comma-separated values” files ending in the extension .csv. The zip file also contains some documentation for the data.
+
+*** 
+
+### Getting to know your way around RStudio
+
+Open the RStudio program. When you start RStudio for the first time, the screen will probably look something like the following:
+
+*** 
+
+![alt text](fig1.1.png)
+
+*** 
+
+The left box is the R __Console__. This is where commands could be entered one by one, if you wanted to run R interactively. We will not usually enter commands this way—instead, we will use the script editor.
+
+Let’s open the script editor and enter a very simple RStudio script.At the very top of the window, use the drop-down menus to select  _File → New → R Script_.  You should see something like the following screenshot. 
+
+***
+
+![alt text](fig1.2.png)
+
+*** 
+
+The top left box that is now opened up is an area where you write and edit scripts: the R __Script Editor__. A script is simply a set of executable commands that can be run in chunks or all at once. Here’s an example: 
+
+Type the following simple script into the script editor (it works like a simple word processor):
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# A “pound sign” (#) defines an R comment. A comment will not be executed.
+a = 5
+b = 2
+c = a+b
+d = a*b + (c/a)*b
+print(a)
+print(b)
+print(c)
+print(d)
+
+```
+
+Take a look at the commands in the script. 
+
+The “=” sign defines or creates a new object: it could be a number, like a or b here, or a variable in your data, or whole data set, or output from a graph or statistical procedure.
+
+NOTE: Many R users use the characters “<-” instead of “=” to define new objects. For defining objects, “<-” usually means exactly the same thing as “=”. Thus the line  
+
+```a = 5```  
+could be written  
+```a <- 5```. 
+
+We use “=” in this guide because it makes common sense, but be aware that “<-” seems to be the convention among most R users.
+
+Can you predict what R will do once we run this? Let’s run the script and see. You can run the script a couple of different ways:
+
+Often we will want to run just a part of the script. To do this, highlight any section of your script you want to run and press the run button located at the top right of your Script Editor (see red arrow below).  Sometimes it is more convenient to click on the line number, which will then highlight the line itself. You can also click and hold to highlight a set of lines by moving over the line numbers. Note: Here’s where you’ll start to see the advantages of using a mouse!
+
+*** 
+
+![alt text](fig1.3.png)
+
+*** 
+
+Alternatively, if you want to run the whole script, you can go to the __Code__ tab at the top and click on __Run Region__, then press __Run All__.
+
+Once you run the script you should notice a couple of things. First, you should see the output of the script (as well as the code that was run) in the R Console, which is the box in the lower left directly underneath your script editor. Second, you should also notice that the top right box, which is your __Workspace__, is no longer completely blank. Your Workspace shows you everything that you have stored during your most recent session using R—from saved variables to imported data sets. Entire workspaces can be saved and reopened later. 
+
+The bottom right box, the __Session Management__ area, is where you can access your files (saved scripts, plots, etc.). You can also access your installed packages (more on packages later), and you can get additional help if need be. Plots will appear here as well.
+
+To see how a plot will appear, note that R can also act as a graphing calculator.  Type the following as a new line in your script editor:
+
+```curve(13.027-1.82*x+0.127*x^2, add=TRUE, xlim = c(0, 25))```
+
+Highlight the line (note that to highlight a line, you can simply click on the number next to the line or click and hold to highlight multiple numbers/lines).  Once highlighted, run the single line by pressing the run button.  You should see a curve appear in the plot window on the lower right.  (You may have to click on the “plots” tab.)  Type in a different equation on the following line (you may cut and past the existing line, and then modify, rather than retyping everything) and see what happens.  Does another line appear on the plot?
+
+
+***
+
+### Summary
+
+___Key points/ concepts:___
+
+* R is the software that runs the data analysis.
+* RStudio is our interface with R, in which we can edit scripts, etc.
+* The RStudio screen has four basic windows: 
+    + Script editor for editing and running code
+    + Workspace, showing open data sets and saved results
+    + R console for results and running R commands interactively
+    + Session management, with tabs for file list, plots, packages, and help
+* Keep all your R scripts and data sets for this course in a single working directory (folder), and make sure you know where it is.
+* Scripts can be edited and run from the script editor. 
+
+*** 
+
+### QUICK REFERENCE: The RStudio screen
+
+This screen shot shows the four basic windows or boxes you will be using once you get up and running in RStudio. Refer back to this page if you forget which is which.
+
+![ ](fig_quick_ref.png)
+
+*** 
+
+_Script Editor_ (upper left) is where you will view and edit your R scripts (commands).
+
+_R Console_ (lower left) is where R is actually running, and where most of your data analysis results will appear.
+
+_Workspace_ (upper right) shows data sets and variables you have loaded or created.
+
+_Session Management_ (lower right) has tabs for various R-related files; plots (graphics) you have created; packages (program add-ins to do a variety of tasks); and help.
+
+***
+

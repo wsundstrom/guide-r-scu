@@ -1,0 +1,174 @@
+---
+title: ''
+output:
+  html_document:
+    highlight: textmate
+    theme: readable
+---
+  
+```{r setup, echo=FALSE, message=F, warning=F  }
+
+### This chunk is used for every tutorial
+
+# This sets the default root directory
+library(knitr)
+opts_knit$set(root.dir = '/Users/Wsundstrom/Google Drive/R_guide/data')
+# The following allows markdown to find LaTex
+Sys.setenv(PATH=paste(Sys.getenv("PATH"),"/usr/texbin",sep=":"))
+
+# Clear the working space
+rm(list = ls())
+
+# Set working directory (edit for YOUR econ 42 folder)
+setwd("/Users/wsundstrom/Dropbox/econ_42/files42")
+
+# Load the packages (must have been installed: see tutorial_2)
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(gdata)
+library(doBy)
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# set larger font size for qplot (default is 12)
+theme_set(theme_gray(base_size = 18))
+# function to calculate corrected SEs for regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+
+```
+
+<base target="_top"/>
+
+_Guide to R for SCU Economics Students, v. 3.0_
+
+*** 
+
+## Appendix:  Data sets used in the tutorials
+
+*** 
+
+#### Where to find what you need:
+
+* [Guide to R: Home](http://rpubs.com/wsundstrom/home)
+* [Downloads: R tutorial scripts and data files](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0)
+
+***
+
+### 1. The California Test Score Data Set
+
+The California Standardized Testing and Reporting (STAR) dataset contains data on test performance, school characteristics and student demographic backgrounds. The data used here are from all 420 K-6 and K-8 districts in California with data available for 1998 and 1999.  Test scores are the average of the reading and math scores on the Stanford 9 standardized test administered to 5th grade students.  School characteristics (averaged across the district) include enrollment, number of teachers (measured as “full-time-equivalents”), number of computers per classroom, and expenditures per student.  The student-teacher ratio used here is the number of full-time equivalent teachers in the district, divided by the number of students.  Demographic variables for the students also are averaged across the district.  The demographic variables include the percentage of students in the public assistance program CalWorks (formerly AFDC), the percentage of students that qualify for a reduced price lunch, and the percentage of students that are English Learners (that is, students for whom English is a second language).  All of these data were obtained from the [California Department of Education](www.cde.ca.gov).
+
+Downloaded from [Stock and Watson site](http://wps.aw.com/aw_stock_ie_3/178/45691/11696965.cw/index.html). 
+
+File: __caschool.csv__
+
+Variable  | Definition
+------------- | -------------
+dist_cod | 	district code
+county		|	county
+district	|		district name
+gr_span	|	grade span of district
+enrl_tot |		total enrollment
+teachers	|	number of teachers
+calw_pct	|	Percent qualifying for CalWorks
+meal_pct	|	Percent qualifying for reduced-price lunch
+computer	|	number of computers
+testscr		|	avg test score (= (read_scr+math_scr)/2 )
+comp_stu	|	computers per student ( = computer/enrl_tot)
+expn_stu	|	expenditures per student ($’s)
+str		|	student teacher ratio (enrl_tot/TEACHERS)
+avginc	|		district average income (in $1000's)
+el_pct	|		percent of English Learners
+read_scr	|	avg Reading Score
+math_scr	|	avg Math Score
+
+*** 
+
+### 2. CPS92_08 Data
+
+Each month the Bureau of Labor Statistics in the U.S. Department of Labor conducts the “Current Population Survey” (CPS), which provides data on labor force characteristics of the population, including the level of employment, unemployment, and earnings. Approximately 65,000 randomly selected U.S. households are surveyed each month. The sample is chosen by randomly selecting addresses from a database comprised of addresses from the most recent decennial census augmented with data on new housing units constructed after the last census. The exact random sampling scheme is rather complicated (first small geographical areas are randomly selected, then housing units within these areas randomly selected); details can be found in the Handbook of Labor Statistics and is described on the [Bureau of Labor Statistics website](www.bls.gov).
+
+The survey conducted each March is more detailed than in other months and asks questions about earnings during the previous year. The file CPS92_08 contains the data for 1992 and 2008 (from the March 1993 and 2009 surveys). These data are for full-time workers, defined as workers employed more than 35 hours per week for at least 48 weeks in the previous year. Data are provided for workers whose highest educational achievement is (1) a high school diploma, and (2) a bachelor’s degree.  
+
+Downloaded from [Stock and Watson site](http://wps.aw.com/aw_stock_ie_3/178/45691/11696965.cw/index.html).
+
+File: __cps92_08.csv__
+
+Variable  | Definition
+------------- | -------------
+FEMALE | 1 if female; 0 if male
+YEAR | Year
+AHE | Average Hourly Earnings
+BACHELOR | 1 if worker has a bachelor’s degree; 0 if worker has a high school degree
+
+***
+
+### 3. CPS Data for Table 8.1
+
+Each month the Bureau of Labor Statistics in the U.S. Department of Labor conducts the “Current Population Survey” (CPS), which provides data on labor force characteristics of the population, including the level of employment, unemployment, and earnings.  Approximately 65,000 randomly selected U.S. households are surveyed each month.  The sample is chosen by randomly selecting addresses from a database comprised of addresses from the most recent decennial census augmented with data on new housing units constructed after the last census.  The exact random sampling scheme is rather complicated (first small geographical areas are randomly selected, then housing units within these areas randomly selected); details can be found in the Handbook of Labor Statistics and is described on the  [Bureau of Labor Statistics website](www.bls.gov).
+The survey conducted each March is more detailed than in other months and asks questions about earnings during the previous year.  These data are from the March 2009 survey. 
+
+Downloaded from [Stock and Watson site](http://wps.aw.com/aw_stock_ie_3/178/45691/11696965.cw/index.html).
+
+File: __ch8_cps.csv__
+
+Variable  | Definition
+------------- | -------------
+Female |	1 if female; 0 if male
+Age	| Age (in Years)
+Ahe	| Average Hourly Earnings in 2004
+Yrseduc	| Years of Education
+Northeast	| 1 if from the Northeast, 0 otherwise
+Midwest	| 1 if from the Midwest, 0 otherwise
+South	| 1 if from the South, 0 otherwise
+West	| 1 if from the West, 0 otherwise
+
+*** 
+
+### 4. Data for 2009 from World Development Indicators 
+
+Source: World Bank
+Cross-section of countries
+
+File: __wdi_data.csv__
+
+Variable  | Definition
+------------- | -------------
+fertilityrate   |		Fertility rate, total (births per woman)
+gdppercap       |		GDP per capita (constant 2005 international $)
+gnipercap       |		GNI per capita (current US$)
+internetusers   |		Internet users (per 100 people)
+lifeexpfem      |		Life expectancy at birth, female (years)
+lifeexpmale     |		Life expectancy at birth, male (years)
+lifeexptot      |		Life expectancy at birth, total (years)
+literacytotal   |		Literacy rate, adult total (% of people ages 15 and above)
+mobilesubs      |		Mobile cellular subscriptions (per 100 people)
+infantmort      |		Mortality rate, infant (per 1,000 live births)
+popruralperc    |		Rural population (% of total population)
+resourcerents   |		Total natural resources rents (% of GDP)
+population      |		Population, total
+wbcode          |		Country Code
+countryname 	|	Country Name
+africa         | 		Binary = 1 if country in Africa
+ccodenum        |		Country Code
+
+
+File: __wdi_school_data.csv__
+
+Variable  | Definition
+------------- | -------------
+schfemmaleprim  |	Ratio of female to male primary enrollment (%)
+schfemmalesecon |	Ratio of female to male secondary enrollment (%)
+countryname     |	Country Name
+
+
+

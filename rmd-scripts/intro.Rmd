@@ -1,0 +1,105 @@
+---
+title: ''
+output:
+  html_document:
+    highlight: textmate
+    theme: readable
+---
+  
+```{r setup, echo=FALSE, message=F, warning=F  }
+
+### This chunk is used for every tutorial
+
+library(knitr)
+
+# Identify machine and set directory
+rootDir1 <- "/Users/wsundstrom"
+rootDir2 <- "/Users/Derran"
+subDir <- "/Google Drive/R_SCU_resources/files42/data"
+
+if (file.exists(rootDir1)){
+    rootDir = rootDir1
+} else {
+  if (file.exists(rootDir2)){
+    rootDir = rootDir2
+  }
+}
+
+mainDir = file.path(rootDir, subDir)
+
+# Root drectory for knitr
+opts_knit$set(root.dir = mainDir)
+
+# The following allows markdown to find LaTex
+Sys.setenv(PATH=paste(Sys.getenv("PATH"),"/usr/texbin",sep=":"))
+
+# Set working directory 
+setwd(mainDir)
+
+# Load the packages (must have been installed)
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(WDI)
+library(gdata)
+library(doBy)
+library(XML)
+library(countrycode)
+library(erer)
+library(plyr)
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# set larger font size for qplot (default is 12)
+theme_set(theme_gray(base_size = 18))
+# function to calculate corrected SEs for regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+
+```
+
+<base target="_top"/>
+
+_Guide to R for SCU Economics Students, v. 3.0_
+
+*** 
+
+## Introduction
+
+This guide is designed to help students taking ECON 42 at Santa Clara University learn how to use the R program for statistical analysis of data. It may also be helpful to others who want a hands-on approach to using R for basic econometrics, and for students taking other courses that use R who need a refresher. It consists largely of tutorials, which walk the user through accompanying R scripts (programs).
+
+The topics and applications in the tutorials closely follow the content of ECON 41 and replicate some of the examples used in the main textbook for that course: James H. Stock and Mark W. Watson, _Introduction to Econometrics_ (Pearson). 
+
+* Links to the tutorial scripts, data, and other chapters of the Guide can be found at the [Guide to R Home Page](http://rpubs.com/wsundstrom/home).
+
+*** 
+
+### What is R?
+
+R is an open source programming language and software environment for statistical computing and graphics. It is widely used by statisticians and other number crunchers for data analysis and related applications. A growing cadre of large and small organizations, including many companies here in Silicon Valley, use R for a variety of vital functions, from Google and Facebook, to UBER and Orbitz, to the New York Times and the non-profits Benetech and Human Rights Data Analysis Group. More information can be found [here](http://www.revolutionanalytics.com/what-is-open-source-r/companies-using-r.php).
+
+For our purposes, R provides all the data management and econometric tools we need to manipulate and analyze data. Being open-source, the R development community provides free add-in “packages” that expand and enhance R’s capabilities. 
+
+R can be used interactively: You can type in commands (such as 2 + 2) and R will output the results for you to see (hopefully 4!). However, R is most powerful as a “scripting language.” A script is a sequence of commands that you submit to R and R executes, much as a cook might follow the steps of a recipe. Scripting is very important because it provides an easy way to fix mistakes, to insert or delete commands, to repeat what we have programmed without having to re-enter everything, and to give others an opportunity to replicate our work.
+
+Our goal in Economics 42 is to be users, not programmers. So to make it easier we provide you with sample scripts that you can modify rather than write from scratch. We will use a nice interface called RStudio to edit and run our R scripts.
+
+*** 
+
+### How to use this Guide
+
+The Guide consists of tutorials that will help you learn how to conduct a variety of statistical analyses and manage your data in R. The tutorials refer to accompanying R scripts and sample data sets, which can be downloaded from the course website. The later tutorials build on the earlier ones, so do them in order.
+
+For each tutorial, you should open the accompanying script in RStudio and follow the instructions in the tutorial step by step, running the lines of script as called for, and examining the results. The later tutorials build on the earlier ones, so do them in order.
+
+We make every effort to keep the tutorials up to date, but R is constantly evolving. Often there is more than one way to do something, and new packages that offer new and improved features are constantly appearing. We encourage users to search and experiment. Let us know if you find a better mousetrap-- or build one yourself!
+
+***
+

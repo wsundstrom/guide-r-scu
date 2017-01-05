@@ -1,0 +1,324 @@
+---
+title: ''
+output:
+  html_document:
+    highlight: textmate
+    theme: readable
+---
+  
+```{r setup, echo=FALSE, message=F, warning=F  }
+
+### This chunk is used for every tutorial
+
+library(knitr)
+
+# Identify machine and set directory
+rootDir1 <- "/Users/wsundstrom"
+rootDir2 <- "/Users/Derran"
+subDir <- "/Google Drive/R_SCU_resources/files42/data"
+
+if (file.exists(rootDir1)){
+    rootDir = rootDir1
+} else {
+  if (file.exists(rootDir2)){
+    rootDir = rootDir2
+  }
+}
+
+mainDir = file.path(rootDir, subDir)
+
+# Root drectory for knitr
+opts_knit$set(root.dir = mainDir)
+
+# The following allows markdown to find LaTex
+Sys.setenv(PATH=paste(Sys.getenv("PATH"),"/usr/texbin",sep=":"))
+
+# Set working directory 
+setwd(mainDir)
+
+# Load the packages (must have been installed)
+library(AER)
+library(sandwich)
+library(lmtest)
+library(car)
+library(stargazer)
+library(ggplot2)
+library(openintro)
+library(OIdata)
+library(WDI)
+library(gdata)
+library(doBy)
+library(XML)
+library(countrycode)
+library(erer)
+library(plyr)
+
+# turn off scientific notation except for big numbers
+options(scipen = 9)
+# set larger font size for qplot (default is 12)
+theme_set(theme_gray(base_size = 18))
+# function to calculate corrected SEs for regression 
+cse = function(reg) {
+  rob = sqrt(diag(vcovHC(reg, type = "HC1")))
+  return(rob)
+}
+
+```
+
+```{r prelim, echo=FALSE, message=F, warning=F  }
+
+### This chunk is for any data and regression steps used throughout the tutorial
+
+### Read the CA school district data 
+
+# read the data from csv file
+caschool = read.csv("caschool.csv", header=TRUE, sep=",")
+caschool$smallclass = caschool$str<20
+
+```
+
+<base target="_top"/>
+
+_Guide to R for SCU Economics Students, v. 3.0_
+
+*** 
+
+## Graphs 
+
+***
+
+#### In this tutorial you will learn how to:
+
+* Create some useful plots: 
+    + Histograms
+    + Box plots
+    + Scatter plots
+
+***
+
+#### Where to find what you need:
+
+* [Guide to R: Home](http://rpubs.com/wsundstrom/home)
+* [Downloads: R tutorial scripts and data files](https://www.dropbox.com/sh/osy4l5arp5sb44y/AADT484fHANxVKYXAeaFoP5-a?dl=0)
+
+***
+
+### Introduction
+
+Visualizing your data is an important first step in any analysis. By examining plots we can often identify important relationships in the data as well as some potential sources of problems, such as outliers. R is renowned for its graphics capabilities. 
+
+There are many options for creating plots in R. We are going to use a function called `qplot` (for “quick plot”), which is part of the ggplot2 package. qplot makes nice-looking graphs fairly easily.
+
+We'll use the California schools data provided by Stock and Watson to generate some basic histograms, box plots, and scatter plots.
+
+*** 
+
+#### Getting started.
+
+Open RStudio and find and open the script *t_graphs.R* in your script editor. Once again, note that to run this script on your computer you will need to edit the `setwd(...)` command for your own working directory (folder). That is, change the part in quotations to your working directory folder (and not Sundstrom’s) in the following line of code:
+
+`setwd("/Users/wsundstrom/Dropbox/econ_42")`
+
+Now you load the packages, run other settings, and import the data.  To do that, highlight and run all of the code through the Data section (to just before the Analysis section). Examine the table of descriptive statistics to remind yourself what is in the data set.  Note that the function `cse( )` is used to correct the standard errors (see below).
+
+
+***
+
+### Draw a histogram
+
+A histogram is a bar chart of the distribution of a variable in the sample, showing the number of observations in various ranges of values.
+
+Run the following line of code:
+  
+```{r, eval=FALSE, message=F, warning=F  }
+
+qplot(testscr, data=caschool, binwidth = 5, 
+      main="Histogram of test scores", xlab="Test score")
+
+```
+
+A plot should appear in the Session Management area (lower right).
+
+Some things to note about the `qplot` command here:
+
+* This command has the usual R structure: a command name, with additional information in parentheses.
+
+* Inside the parentheses, the variable you want to examine (_testscr_) comes first. If you only name one variable, qplot assumes you want a histogram by default (this can be changed).
+
+* Further instructions are separated by commas. 
+
+* We tell qplot which data set to use with the `data=caschool` option. This allows us to name the variables without using the data set as a prefix (e.g., _testscr_ instead of _caschool$testscr_).
+
+* The `binwidth` is optional: it sets how many units of the variable are to be covered by each bar. You can see what happens if you change it to 10 and run again.
+
+* The `main` and `xlab` options create titles for the graph as a whole and for the X axis respectively. These titles should be in “quotes”.
+
+Click on the __Zoom__ tab to see a larger, scalable version of your plot. You can then copy and paste into a Word document.
+
+Click on the __Export__ tab. You can save your plot as a pdf file or as an image file, such as JPEG, or just copy it to your clipboard to paste into a Word document.
+
+*** 
+
+#### Controlling the appearance of the histogram:
+
+The mass of black created by this histogram is not very informative. The ggplot2 package has lots of ways to control the appearance of plots. For example, try running the next two lines of code in the script.
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+h = qplot(testscr, data=caschool, binwidth = 5, 
+          main="Histogram of test scores", 
+          xlab="Test score") 
+h + geom_histogram(binwidth = 5,colour="black", 
+                   fill="white")
+
+```
+
+The first line creates an object in R (you will see it in the environment window). Basically it is all the information needed to draw a histogram.  The next line of code tells R to use that information and apply a particular set of “geometry” choices; namely, have five bins, make the outline of each bar black, and have the inside of the bars be white. If you want to make graphs look even prettier, visit the ggplot site at [ggplot site](http://docs.ggplot2.org/current/).
+
+There are other ways to make histograms. As mentioned earlier, one of the great features of R is that as an open source software users are constantly coming up with packages to improve the software. It can, however, be confusing. The package ggplot is one such user written package. R comes bundled with a simpler histogram command. Just type and run:
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+hist(caschool$testscr, 
+        main="Histogram of test scores", 
+        xlab="Test score")
+
+```
+
+In the plot window you will see a histogram similar to the one generated by the qplot command.  The `hist()` function does not have as many options as qplot, but is pretty mnemonic! Note that in the `hist()` command there is not a separate option for naming the data frame, so the variable that you want to use to  draw the histogram has to be properly addressed, by first indicating the data frame, then the $ sign, then the variable name, or `caschool$testscr`. 
+
+*** 
+
+### Draw a box plot
+
+Recall that a box plot, or “box-and-whiskers” plot, shows the median and interquartile range of the data. The lines extending from the box show extreme values. Dots are potential outliers. Box plots are most interesting when we compare the distribution between different subsets of the data. In this case, let’s compare the distribution of test scores between districts with smaller and larger average class sizes (student-teacher ratio).
+
+Run the following command:
+  
+```{r, eval=FALSE, message=F, warning=F  }
+
+qplot(smallclass, testscr, data=caschool, geom=c("boxplot"), 
+      main="Test score by class size", 
+      xlab="Average class size under 20", ylab="Test score")
+
+```
+
+Note: 
+
+* The first variable is the X-axis variable: the groups we want to compare (smallclass in this case). The second variable is the Y-axis: the variable whose distribution we are examining (testscr). 
+
+* The `geom=` option tells qplot to make a box plot. Without this, the default here would be an X-Y scatter (see below).
+
+* What does the plot tell you about the relationship between test scores and class size?
+
+* To run a boxplot, the grouping variable must be a factor variable with well-defined levels (and not a numeric or continuous variable). If your variable is numeric, it will have to be turned into a factor variable. Code like this can be adapted to “factorize” a 0,1 variable:
+  
+```{r, eval=FALSE, message=F, warning=F}
+
+teach$minority = factor(teach$minority,
+         levels = c(0,1),
+         labels = c("Non-minority", "Minority"))
+
+```
+
+*** 
+
+#### Draw a box plot using the WDI data
+
+We might also use the WDI package to access data from the World Bank’s Development Indicators database and draw a boxplot with the data.  The script already contains the code to download the data from the World Bank server. The WDI package will automatically add a variable for region that we will use for the boxplot.
+
+Run the commands for the box plot:
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+qplot(region, femaleperc, data=wdim,
+      geom=c("boxplot"), 
+      main="Percent female by region", 
+      xlab="Region", 
+      ylab="Percent female")
+```
+
+The boxplot generated has some problems that make it unreadable. Most charts have to be cleaned up, and this boxplot is no exception.  Since there are outliers at the low end of percent female for the Middle East, the y-axis scale makes it hard to visualize the box plots for the other regions.  
+
+Moreover, the labels for the regions, given by the World Bank, include the annoying “(all income levels)” statement for each one. Thus the names are very long. Some code can be written to rename the labels for the regions.  Recall that the region variable is a factor variable, with the labels stored in the different levels of region. The question then arises: How to change the levels of a factor variable? Here is the code for the first three changes. The final <- (which is equivalent to the = sign) defines the new content of the level, and the code the left of the <- defines which of the levels of the factor variable region to change.
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+levels(wdim$region)[levels(wdim$region)=="Europe & 
+          Central Asia (all income levels)"] 
+          <- "Europe"
+levels(wdim$region)[levels(wdim$region)=="Middle 
+          East & North Africa (all income levels)"] 
+          <- "M East"
+levels(wdim$region)[levels(wdim$region)=="East Asia 
+          & Pacific (all income levels)"] 
+          <- "East Asia"
+
+```
+
+We are now ready to redraw the boxplot. We use ggplot rather than qplot, because we want to rescale the y-axis and drop outliers. The way to do this is by creating a new chart, that we call chart0, and storing that as an object in R. Then the next line of code creates a different version of the chart, chart1, that sets the y-axis to be between 42 and 54 percent. You should “talk through” the code with a friend to make sure you understand what each part of the code is doing.
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# A way to change scale of y-axis and drop outliers
+chart0 = ggplot(aes(y = femaleperc, x = region,), 
+  data = wdim) + geom_boxplot(outlier.size=NA)+ 
+  labs(title="Percent female by region", x="Region", 
+  y="Percent female")
+# scale y limits 
+chart1 = chart0 + coord_cartesian(ylim = c(42,54))
+# display the resulting chart, which is called chart1
+chart1
+
+```
+
+The resulting chart looks quite a bit better. We see that almost all of the countries of North America, Africa and Europe have percent of the population that is female about 50 percent, while the Middle East, South Asia and East Asia have many countries below 50 percent. Why do you think so many countries in the Middle East have such low percent female? The answer is not discrimination resulting in “missing women.” Think about the oil-rich Gulf States. They attract migrants from around the world to work in the cities and oil fields. Those migrants are predominantly male. For some countries, the resulting population is almost two-thirds male.
+
+*** 
+
+### Draw a scatter plot
+
+We are usually most interested in the relationship between variables, such as test scores and class size. A scatter plot is a good way to visualize the relationship. The command `qplot(X, Y, …)` does the trick. If your qplot command starts with two variables (X, Y), it will make a scatter plot by default unless told otherwise (as in boxplot).
+
+Run the scatter plot command in the script to see the relationship between class size and test scores.
+
+```{r, message=F, warning=F, comment=NA  }
+
+# Test score by class size (str)
+qplot(str, testscr, data=caschool, main = 
+          "CA test scores",
+          ylab = "Test score",
+          xlab = "Student-teacher ratio")
+
+```
+
+Note that you give the X variable first, then the Y, and then any options for the plot. R scales the plot to the range of values for X and Y. Does the plot suggest that increasing class size (str) leads to lower test scores? There does seem to be a negative relationship.
+
+The additional scatter plot commands show some of the other things you can do with R plots. Run each of these and see what happens. 
+
+We can generate a scatter plot with the WDI data. Run the following command.
+
+```{r, eval=FALSE, message=F, warning=F  }
+
+# Income per capita and percent female
+qplot(GDPpcUSDreal, femaleperc, data=wdim, main = 
+        "Income and percent female",
+        ylab = "Percent female",
+        xlab = "GDP per capita")
+
+```
+*** 
+
+### Summary 
+
+___Key R commands (functions):___
+
+* `qplot`: for quick plot, creates a variety of plots, including histogram, box plot, and scatter plot (requires package ggplot2)
+* `ggplot`: more general plotting command, but also more complicated options need to be specified
+
+___Key points/ concepts:___
+
+* Options in qplot and ggplot can be used to control plot types and appearance.
+
+*** 
+
