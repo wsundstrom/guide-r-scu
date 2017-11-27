@@ -23,11 +23,11 @@
   rm(list = ls())
   
   # Set working directory (edit for YOUR econ 42 folder)
-  setwd("/Users/wsundstrom/econ_42/data")
-  
+  #setwd("/Users/wsundstrom/econ_42/data")
+  #or 
+  #setwd("C:/Users/wsundstrom/econ_42/data")
+
   # Load the packages 
-  library(AER) 
-  library(car)
   library(countrycode)
   library(doBy)
   library(dplyr)
@@ -35,9 +35,6 @@
   library(gdata)
   library(ggplot2)
   library(knitr)
-  library(lmtest)
-  library(openintro)
-  library(OIdata)
   library(readstata13)
   library(reshape)
   library(sandwich)
@@ -68,7 +65,6 @@
   # Note this variable is a "factor" variable, not a numeric variable
   caschool$smallclass <- caschool$str<20
 
-
 ### Read data from a database on the Internet
 
   wdilist <- c("NY.GDP.PCAP.PP.KD", # GDP per capita, PPP (constant 2005 intl $)
@@ -89,7 +85,7 @@
   # depending on connection speed
   
   wdim = WDI(country="all", indicator = wdilist, 
-             extra = TRUE, start = 2014, end = 2014)
+             extra = TRUE, start = 2015, end = 2015)
   
   # Rename the variables
   wdim <- rename.vars(wdim,c("NY.GDP.PCAP.PP.KD", "SP.POP.TOTL"), c("GDPpcUSDreal","population"))

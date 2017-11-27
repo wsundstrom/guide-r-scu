@@ -9,7 +9,7 @@
 # edits by Bill Sundstrom 9/1/2016
 # Latest version: Michael Kevane 12/15/2016
 
-# Description: Script format, install packages, set options and import 
+# Description: Script format, set options and import 
 # CA school district data and WDI data
 
 #==============================================================================
@@ -23,18 +23,12 @@
 rm(list = ls())
 
 # Set working directory (edit for YOUR econ 42 folder)
-setwd("C:/Users/mkevane/courses/econ42/data")
+# For windows - setwd("C:/Users/mkevane/courses/econ42/data")
+# For Mac - setwd("/Users/mkevane/courses/econ42/data")
 
-# You should only need to run the following "install" command once:
-# Install the packages for this course
-# Note if you change computers or wipe your computer you will have to reinstall
-install.packages(c("AER", "car", "countrycode", "doBy", "dplyr", "foreign", "gdata", 
-                   "ggplot2", "knitr", "lmtest", "openintro", "OIdata", "readstata13", 
-                   "reshape", "sandwich", "stargazer", "WDI", "XML"))
-
-# Load the packages (must have been installed, as above, and have to be run every session)
-library(AER)
-library(car)
+# Load the packages 
+# (they must have been installed with t_install_packages.R previously)
+# Library commands have to be run every new session
 library(countrycode)
 library(doBy)
 library(dplyr)
@@ -43,19 +37,18 @@ library(gdata)
 library(ggplot2)
 library(knitr)
 library(lmtest)
-library(openintro)
-library(OIdata)
 library(readstata13)
 library(reshape)
 library(sandwich)
 library(stargazer)
 library(WDI)
 library(XML)
+# These two may be problematic for some Mac users. Seek help!
+library(AER)
+library(car)
 
 # turn off scientific notation except for big numbers
 options(scipen = 9)
-# set larger font size for qplot (default is 12)
-theme_set(theme_gray(base_size = 18))
 # function to calculate corrected SEs for regression 
 cse <- function(reg) {
   rob = sqrt(diag(vcovHC(reg, type = "HC1")))
@@ -67,8 +60,7 @@ cse <- function(reg) {
 #   2. Data section
 #==============================================================================
 
-### Data entry "by hand": Not the usual way!
-
+# Data entry "by hand": Not the usual way!
 # Data can be entered directly in your script
 # Simple example: each variable is created as a vector
 age <- c(25, 30, 56)
@@ -79,9 +71,19 @@ mydata <- data.frame(age,gender,weight)
 # take a look at the data
 mydata
 
-### Read data from an external csv file
+# Simulate data
+set.seed(1534) # For replication 
+N = 1000 # Population size
+X0 = runif(N) # Value of intercept value  
+X1 = runif(N) # Value of explanatory value 
+Xerr = runif(N) # Value of error term value 
+Y = X0 + 4*X1 +Xerr # Value of outcome Y 
+samp = data.frame(X0,X1,Y) # data that might "observe"
 
-# read the data from csv file
+# Read data from csv file
+caschool = read.csv("caschool.csv",header=TRUE,sep=",")
+
+# Read data from a website
 caschool <- read.dta("http://wps.aw.com/wps/media/objects/11422/11696965/datasets3e/datasets/caschool.dta")
 
 # new variable for "small" average class sizes: student teacher ratio < 20
@@ -91,7 +93,6 @@ caschool$smallclass <- caschool$str<20
 
 # new variable using mathematical expression (similar to excel)
 caschool$strsquared <- caschool$str^2
-
 
 ### Read data from a database on the Internet
 
@@ -113,7 +114,7 @@ wdilist <- c("NY.GDP.PCAP.PP.KD", # GDP per capita, PPP (constant 2005 intl $)
 # depending on connection speed
 
 wdim <- WDI(country="all", indicator = wdilist, 
-           extra = TRUE, start = 2014, end = 2014)
+           extra = TRUE, start = 2015, end = 2015)
 
 # Rename the variables
 wdim <- rename.vars(wdim,c("NY.GDP.PCAP.PP.KD", "SP.POP.TOTL"), c("GDPpcUSDreal","population"))
@@ -142,7 +143,10 @@ wdim_income <- wdim[c("country", "GDPpcUSDreal", "femaleperc")]
 ### See subsequent tutorials...
 
 # But wait, let us at least do a table of descriptive statistics
-stargazer(wdim, type="text", digits=2, title="WDI data set")
-stargazer(wdi_africa, type="text", digits=2, title="WDI data set")
+stargazer(wdim, type="text", digits=2, title="WDI dataset")
+stargazer(wdi_africa, type="text", digits=2, title="WDI dataset")
+
+# Look at basic stats for all the numeric variable sin the dataset
+stargazer(caschool, type="text", digits=2, title="CA schools dataset")
 
 

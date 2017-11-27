@@ -12,7 +12,6 @@
 # Description: Nonlinear regressions, replication of Table 8.1, and
 # diagnosing and treating perfect multicollinearity
 
-
 #==============================================================================
 #   1. Settings, packages, and options (run these every R session)
 #==============================================================================
@@ -24,24 +23,17 @@ rm(list = ls())
 setwd("/Users/mkevane/files42/data")
 
 # Load the packages 
-library(AER) 
-library(car)
 library(countrycode)
 library(doBy)
 library(dplyr)
 library(foreign)
-library(gdata)
 library(ggplot2)
 library(knitr)
 library(lmtest)
-library(openintro)
-library(OIdata)
 library(readstata13)
 library(reshape)
 library(sandwich)
 library(stargazer)
-library(WDI)
-library(XML)
 
 # turn off scientific notation except for big numbers
 options(scipen = 9)
@@ -49,7 +41,7 @@ options(scipen = 9)
 cse = function(reg) {
   rob = sqrt(diag(vcovHC(reg, type = "HC1")))
   return(rob)
-}
+  }
 
 #==============================================================
 #   Data section for CA school analysis
@@ -187,4 +179,4 @@ cse = function(reg) {
             se=list(cse(bad_reg)), 
             title="Dummy variable trap", type="text", 
             df=FALSE, digits=3)
-  # What do you notice about the results?
+  # What do you notice about the results?  Which region was dropped? Why?

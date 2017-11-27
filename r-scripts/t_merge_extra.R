@@ -21,6 +21,7 @@ setwd("/Users/yournamehere/files42/data")
 # Load the packages (must have been installed: see tutorial_2)
 library(XML)
 library(plyr)
+library(dplyr)
 library(sandwich)
 library(lmtest)
 library(car)
@@ -29,6 +30,8 @@ library(ggplot2)
 library(gdata)
 library(doBy)
 library(stringr)
+library(data.table)
+library(tidyr)
 
 # turn off scientific notation except for big numbers
 options(scipen = 9)
@@ -36,7 +39,7 @@ options(scipen = 9)
 cse = function(reg) {
   rob = sqrt(diag(vcovHC(reg, type = "HC1")))
   return(rob)
-}
+  }
 
 #==============================================================================
 #   2. Data section
@@ -69,10 +72,16 @@ sccountysal$firstname <- sapply(strsplit(sccountysal$namelc, " "), '[', 1)
 sccountysal$lastname <- sapply(strsplit(sccountysal$namelc, " "), '[', 1)
                                
 # Read in a csv file of the gender of names of people born in California
-names = read.csv("names california.csv")
-head(names)
+f = read.table("http://www.cs.cmu.edu/afs/cs/project/ai-repository/ai/areas/nlp/corpora/names/female.txt", 
+               sep="\t", col.names=c( "name"), fill=FALSE, strip.white=TRUE)
+f$female=1
+m = read.table("http://www.cs.cmu.edu/afs/cs/project/ai-repository/ai/areas/nlp/corpora/names/male.txt", 
+               sep="\t", col.names=c( "name"), fill=FALSE, strip.white=TRUE)
+m$female=0
+names <- rbind(f,m)
 names$name = as.character(names$name)
 names$firstname =tolower(names$name)
+names <- unique(names, by = "name")
 
 ### Merge two data sets using a common variable to match observations
 # merge the datasets using join in library(plyr)
@@ -119,5 +128,23 @@ stargazer(reg1,
 
 # Save the data set to a csv file
 # write.csv(sccountysal, file = "salaries santa clara cty.csv")
+
+#### Reshaping
+# to reshape a data set from wide to long or long to wide
+ts1 <- runif(20)+2
+ts2 <- runif(20)+3
+ts3 <- runif(20)+4
+ts4 <- runif(20)+6
+ts5 <- runif(20)+7
+id <- seq(1, 20, by=1)
+scores <- data.frame(ts1,ts2,ts3,ts4,ts5,id)
+# syntax makes use of the "pipe" operator (%>%) from dplyr
+scores_l <- scores %>% gather(test, score, ts1:ts5)
+
+scores_l$testnum=substr(scores_l$test,3,3)
+ggplot(data=scores_l, aes(x = testnum, 
+                          y = score, color=id)) +
+  geom_point(size = 1.5,alpha = 0.75)
+ggplot(data=scores_l, aes(x = testnum, y = score))+ geom_boxplot()
 
 

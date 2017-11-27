@@ -60,7 +60,7 @@ wdilist <- c("NY.GDP.PCAP.PP.KD", # GDP per capita, PPP (constant 2005 intl $)
 
 # Extract latest version of desired variables from WDI.
 # This takes a long time, so below save as csv file and the import rather than download from WDI each time
-wdim <- WDI(country="all", indicator = wdilist, extra = TRUE, start = 2010, end = 2010)
+wdim <- WDI(country="all", indicator = wdilist, extra = TRUE, start = 2015, end = 2015)
 
 # Rename the variables
 wdim <- rename.vars(wdim, c("NY.GDP.PCAP.PP.KD","SP.POP.TOTL"), c("GDPpcUSDreal","population"))

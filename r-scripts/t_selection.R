@@ -28,6 +28,7 @@ library(stargazer)
 library(ggplot2)
 library(gdata)
 library(doBy)
+library(dplyr)
 library(plm)
 library(ivpack)
 library(sampleSelection)
@@ -58,7 +59,7 @@ ivse = function(reg) {
 }
 
 #==============================================================================
-#   2. Data Mroz data on married women's wages
+#   2. Data: Mroz data on married women's wages
 #==============================================================================
 
 ### Data from Mroz (1987). Using PSID 1975 data. From package sampleSelection.

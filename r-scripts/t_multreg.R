@@ -24,8 +24,6 @@
   setwd("/Users/mkevane/econ_42/files42/data")
   
   # Load the packages 
-  library(AER) 
-  library(car)
   library(countrycode)
   library(doBy)
   library(dplyr)
@@ -34,14 +32,14 @@
   library(ggplot2)
   library(knitr)
   library(lmtest)
-  library(openintro)
-  library(OIdata)
   library(readstata13)
   library(reshape)
   library(sandwich)
   library(stargazer)
   library(WDI)
   library(XML)
+  # For this tutorial to use lht the package car is necessary
+  library(car)
   
   # turn off scientific notation except for big numbers
   options(scipen = 9)
@@ -85,7 +83,7 @@
   # depending on connection speed
   
   wdim <- WDI(country="all", indicator = wdilist, 
-             extra = TRUE, start = 2010, end = 2010)
+             extra = TRUE, start = 2015, end = 2015)
   
   # Rename the variables
   wdim <- rename.vars(wdim,c("NY.GDP.PCAP.PP.KD", "SP.POP.TOTL"), c("GDPpcUSDreal","population"))

@@ -27,8 +27,6 @@
   setwd("/Users/mkevane/econ_42/files42/data")
   
   # Load the packages (must have been installed)
-  library(AER)
-  library(car)
   library(countrycode)
   library(doBy)
   library(dplyr)
@@ -36,7 +34,6 @@
   library(gdata)
   library(ggplot2)
   library(knitr)
-  library(lmtest)
   library(readstata13)
   library(reshape)
   library(sandwich)
@@ -88,7 +85,7 @@
   # depending on connection speed
   
   wdim <- WDI(country="all", indicator = wdilist, 
-             extra = TRUE, start = 2014, end = 2014)
+             extra = TRUE, start = 2015, end = 2015)
   
   # Rename the variables
   wdim <- rename.vars(wdim,c("NY.GDP.PCAP.PP.KD", "SP.POP.TOTL"), c("GDPpcUSDreal","population"))
